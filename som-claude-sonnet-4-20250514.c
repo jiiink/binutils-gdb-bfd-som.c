@@ -905,11 +905,8 @@ static reloc_howto_type som_hppa_howto_table[] =
 static void
 som_initialize_reloc_queue (struct reloc_queue *queue)
 {
-  if (queue == NULL) {
-    return;
-  }
-  
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     queue[i].reloc = NULL;
     queue[i].size = 0;
   }
@@ -927,8 +924,8 @@ som_reloc_queue_insert (unsigned char *p,
   }
   
   for (int i = 3; i > 0; i--) {
-    queue[i].reloc = queue[i - 1].reloc;
-    queue[i].size = queue[i - 1].size;
+    queue[i].reloc = queue[i-1].reloc;
+    queue[i].size = queue[i-1].size;
   }
   
   queue[0].reloc = p;
@@ -941,16 +938,23 @@ som_reloc_queue_insert (unsigned char *p,
 static void
 som_reloc_queue_fix (struct reloc_queue *queue, unsigned int idx)
 {
-  if (idx == 0 || idx > 3 || queue == NULL)
-    return;
+  struct reloc_queue temp;
+  int i;
 
-  struct reloc_queue temp = queue[0];
-  
-  for (unsigned int i = 0; i < idx; i++)
-  {
-    queue[i] = queue[i + 1];
-  }
-  
+  if (queue == NULL || idx == 0 || idx > 3)
+    {
+      if (idx > 3)
+        abort ();
+      return;
+    }
+
+  temp = queue[0];
+
+  for (i = 0; i < (int)idx; i++)
+    {
+      queue[i] = queue[i + 1];
+    }
+
   queue[idx] = temp;
 }
 
@@ -958,21 +962,21 @@ som_reloc_queue_fix (struct reloc_queue *queue, unsigned int idx)
 
 static int
 som_reloc_queue_find (unsigned char *p,
-                      unsigned int size,
-                      struct reloc_queue *queue)
+		      unsigned int size,
+		      struct reloc_queue *queue)
 {
-  if (p == NULL || queue == NULL) {
-    return -1;
-  }
-
-  for (int i = 0; i < 4; i++) {
-    if (queue[i].reloc != NULL &&
-        queue[i].size == size &&
-        memcmp(p, queue[i].reloc, size) == 0) {
-      return i;
-    }
-  }
+  int i;
   
+  if (!p || !queue)
+    return -1;
+    
+  for (i = 0; i < 4; i++)
+    {
+      if (queue[i].reloc 
+          && size == queue[i].size
+          && !memcmp (p, queue[i].reloc, size))
+        return i;
+    }
   return -1;
 }
 
@@ -983,9 +987,8 @@ try_prev_fixup (bfd *abfd ATTRIBUTE_UNUSED,
 		unsigned int size,
 		struct reloc_queue *queue)
 {
-  if (subspace_reloc_sizep == NULL || p == NULL || queue == NULL) {
+  if (!subspace_reloc_sizep || !p || !queue || size == 0)
     return p;
-  }
 
   int queue_index = som_reloc_queue_find (p, size, queue);
 
@@ -1017,49 +1020,42 @@ som_reloc_skip (bfd *abfd,
 		unsigned int *subspace_reloc_sizep,
 		struct reloc_queue *queue)
 {
-  if (!p || !subspace_reloc_sizep || !queue || !abfd)
+  if (!abfd || !p || !subspace_reloc_sizep || !queue) {
     return p;
+  }
 
-  while (skip >= 0x1000000)
-    {
-      skip -= 0x1000000;
-      bfd_put_8 (abfd, R_NO_RELOCATION + 31, p);
-      bfd_put_8 (abfd, 0xff, p + 1);
-      bfd_put_16 (abfd, (bfd_vma) 0xffff, p + 2);
-      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 4, queue);
-    }
+  while (skip >= 0x1000000) {
+    bfd_put_8 (abfd, R_NO_RELOCATION + 31, p);
+    bfd_put_8 (abfd, 0xff, p + 1);
+    bfd_put_16 (abfd, (bfd_vma) 0xffff, p + 2);
+    p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 4, queue);
+    skip -= 0x1000000;
+  }
 
-  if (skip == 0)
+  if (skip == 0) {
     return p;
+  }
 
-  if ((skip & 3) == 0 && skip <= 0xc0000)
-    {
-      if (skip <= 0x60)
-	{
-	  bfd_put_8 (abfd, R_NO_RELOCATION + (skip >> 2) - 1, p);
-	  *subspace_reloc_sizep += 1;
-	  p++;
-	}
-      else if (skip <= 0x1000)
-	{
-	  bfd_put_8 (abfd, R_NO_RELOCATION + 24 + (((skip >> 2) - 1) >> 8), p);
-	  bfd_put_8 (abfd, (skip >> 2) - 1, p + 1);
-	  p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 2, queue);
-	}
-      else
-	{
-	  bfd_put_8 (abfd, R_NO_RELOCATION + 28 + (((skip >> 2) - 1) >> 16), p);
-	  bfd_put_16 (abfd, (bfd_vma) (skip >> 2) - 1, p + 1);
-	  p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 3, queue);
-	}
+  if ((skip & 3) == 0 && skip <= 0xc0000) {
+    if (skip <= 0x60) {
+      bfd_put_8 (abfd, R_NO_RELOCATION + (skip >> 2) - 1, p);
+      *subspace_reloc_sizep += 1;
+      p++;
+    } else if (skip <= 0x1000) {
+      bfd_put_8 (abfd, R_NO_RELOCATION + 24 + (((skip >> 2) - 1) >> 8), p);
+      bfd_put_8 (abfd, (skip >> 2) - 1, p + 1);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 2, queue);
+    } else {
+      bfd_put_8 (abfd, R_NO_RELOCATION + 28 + (((skip >> 2) - 1) >> 16), p);
+      bfd_put_16 (abfd, (bfd_vma) (skip >> 2) - 1, p + 1);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 3, queue);
     }
-  else
-    {
-      bfd_put_8 (abfd, R_NO_RELOCATION + 31, p);
-      bfd_put_8 (abfd, (skip - 1) >> 16, p + 1);
-      bfd_put_16 (abfd, (bfd_vma) skip - 1, p + 2);
-      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 4, queue);
-    }
+  } else {
+    bfd_put_8 (abfd, R_NO_RELOCATION + 31, p);
+    bfd_put_8 (abfd, (skip - 1) >> 16, p + 1);
+    bfd_put_16 (abfd, (bfd_vma) skip - 1, p + 2);
+    p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 4, queue);
+  }
   
   return p;
 }
@@ -1076,40 +1072,35 @@ som_reloc_addend (bfd *abfd,
 		  unsigned int *subspace_reloc_sizep,
 		  struct reloc_queue *queue)
 {
-  unsigned char override_type;
-  unsigned int size;
+  if (!abfd || !p || !subspace_reloc_sizep || !queue)
+    return NULL;
 
-  if (addend + 0x80 < 0x100)
+  if (addend <= 0x7F)
     {
-      override_type = R_DATA_OVERRIDE + 1;
-      size = 2;
-      bfd_put_8 (abfd, override_type, p);
+      bfd_put_8 (abfd, R_DATA_OVERRIDE + 1, p);
       bfd_put_8 (abfd, addend, p + 1);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 2, queue);
     }
-  else if (addend + 0x8000 < 0x10000)
+  else if (addend <= 0x7FFF)
     {
-      override_type = R_DATA_OVERRIDE + 2;
-      size = 3;
-      bfd_put_8 (abfd, override_type, p);
+      bfd_put_8 (abfd, R_DATA_OVERRIDE + 2, p);
       bfd_put_16 (abfd, addend, p + 1);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 3, queue);
     }
-  else if (addend + 0x800000 < 0x1000000)
+  else if (addend <= 0x7FFFFF)
     {
-      override_type = R_DATA_OVERRIDE + 3;
-      size = 4;
-      bfd_put_8 (abfd, override_type, p);
+      bfd_put_8 (abfd, R_DATA_OVERRIDE + 3, p);
       bfd_put_8 (abfd, addend >> 16, p + 1);
       bfd_put_16 (abfd, addend, p + 2);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 4, queue);
     }
   else
     {
-      override_type = R_DATA_OVERRIDE + 4;
-      size = 5;
-      bfd_put_8 (abfd, override_type, p);
+      bfd_put_8 (abfd, R_DATA_OVERRIDE + 4, p);
       bfd_put_32 (abfd, addend, p + 1);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 5, queue);
     }
-
-  return try_prev_fixup (abfd, subspace_reloc_sizep, p, size, queue);
+  return p;
 }
 
 /* Handle a single function call relocation.  */
@@ -1128,19 +1119,7 @@ som_reloc_call (bfd *abfd,
 
   if (sym_num < 0x100)
     {
-      type = -1;
-      
-      if (arg_bits == 0 || arg_bits == 1)
-        type = 0;
-      else if (arg_bits == 0x100 || arg_bits == 0x101)
-        type = 1;
-      else if (arg_bits == 0x140 || arg_bits == 0x141)
-        type = 2;
-      else if (arg_bits == 0x150 || arg_bits == 0x151)
-        type = 3;
-      else if (arg_bits == 0x154 || arg_bits == 0x155)
-        type = 4;
-      
+      type = get_simple_reloc_type(arg_bits);
       if (type != -1)
 	{
 	  if (rtn_bits)
@@ -1148,55 +1127,88 @@ som_reloc_call (bfd *abfd,
 
 	  bfd_put_8 (abfd, bfd_reloc->howto->type + type, p);
 	  bfd_put_8 (abfd, sym_num, p + 1);
-	  return try_prev_fixup (abfd, subspace_reloc_sizep, p, 2, queue);
+	  p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 2, queue);
+	  return p;
 	}
     }
 
-  type = rtn_bits;
-  int arg_6_bits = (arg_bits >> 6) & 0xf;
-  int arg_2_bits = (arg_bits >> 2) & 0xf;
-  
-  if (arg_6_bits == 0xe)
-    type += 360;
-  else
-    type += (3 * ((arg_bits >> 8) & 3) + ((arg_bits >> 6) & 3)) * 40;
-    
-  if (arg_2_bits == 0xe)
-    type += 36;
-  else
-    type += (3 * ((arg_bits >> 4) & 3) + ((arg_bits >> 2) & 3)) * 4;
+  type = calculate_complex_reloc_type(arg_bits, rtn_bits);
 
-  int reloc_type = bfd_reloc->howto->type + 10;
-  if (sym_num >= 0x100)
-    reloc_type += 2;
-  if (type >= 0x100)
-    reloc_type += 1;
-    
-  bfd_put_8 (abfd, reloc_type, p);
+  bfd_put_8 (abfd, bfd_reloc->howto->type + 10
+	     + 2 * (sym_num >= 0x100) + (type >= 0x100),
+	     p);
   bfd_put_8 (abfd, type, p + 1);
 
   if (sym_num < 0x100)
     {
       bfd_put_8 (abfd, sym_num, p + 2);
-      return try_prev_fixup (abfd, subspace_reloc_sizep, p, 3, queue);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 3, queue);
     }
+  else
+    {
+      bfd_put_8 (abfd, sym_num >> 16, p + 2);
+      bfd_put_16 (abfd, (bfd_vma) sym_num, p + 3);
+      p = try_prev_fixup (abfd, subspace_reloc_sizep, p, 5, queue);
+    }
+
+  return p;
+}
+
+static int
+get_simple_reloc_type(int arg_bits)
+{
+  switch (arg_bits)
+    {
+    case 0:
+    case 1:
+      return 0;
+    case 1 << 8:
+    case 1 << 8 | 1:
+      return 1;
+    case 1 << 8 | 1 << 6:
+    case 1 << 8 | 1 << 6 | 1:
+      return 2;
+    case 1 << 8 | 1 << 6 | 1 << 4:
+    case 1 << 8 | 1 << 6 | 1 << 4 | 1:
+      return 3;
+    case 1 << 8 | 1 << 6 | 1 << 4 | 1 << 2:
+    case 1 << 8 | 1 << 6 | 1 << 4 | 1 << 2 | 1:
+      return 4;
+    default:
+      return -1;
+    }
+}
+
+static int
+calculate_complex_reloc_type(int arg_bits, int rtn_bits)
+{
+  int type = rtn_bits;
   
-  bfd_put_8 (abfd, sym_num >> 16, p + 2);
-  bfd_put_16 (abfd, (bfd_vma) sym_num, p + 3);
-  return try_prev_fixup (abfd, subspace_reloc_sizep, p, 5, queue);
+  if ((arg_bits >> 6 & 0xf) == 0xe)
+    type += 9 * 40;
+  else
+    type += (3 * (arg_bits >> 8 & 3) + (arg_bits >> 6 & 3)) * 40;
+    
+  if ((arg_bits >> 2 & 0xf) == 0xe)
+    type += 9 * 4;
+  else
+    type += (3 * (arg_bits >> 4 & 3) + (arg_bits >> 2 & 3)) * 4;
+    
+  return type;
 }
 
 /* Return the logarithm of X, base 2, considering X unsigned,
    if X is a power of 2.  Otherwise, returns -1.  */
 
-static int exact_log2(unsigned int x)
+static int
+exact_log2(unsigned int x)
 {
+    int log = 0;
+    
     if (x == 0 || (x & (x - 1)) != 0)
         return -1;
-
-    int log = 0;
-    while (x > 1)
-    {
+    
+    while (x > 1) {
         x >>= 1;
         log++;
     }
@@ -1212,7 +1224,7 @@ hppa_som_reloc (bfd *abfd ATTRIBUTE_UNUSED,
 		bfd *output_bfd,
 		char **error_message ATTRIBUTE_UNUSED)
 {
-  if (output_bfd != NULL)
+  if (output_bfd && reloc_entry && input_section)
     reloc_entry->address += input_section->output_offset;
 
   return bfd_reloc_ok;
@@ -1230,16 +1242,12 @@ hppa_som_gen_reloc_type (bfd *abfd,
 			 asymbol *sym)
 {
   int *final_type, **final_types;
+  size_t amt = sizeof (int);
 
-  final_types = bfd_alloc (abfd, (bfd_size_type) sizeof (int *) * 6);
-  final_type = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+  final_types = bfd_alloc (abfd, sizeof (int *) * 6);
+  final_type = bfd_alloc (abfd, amt);
   if (!final_types || !final_type)
     return NULL;
-
-  final_types[0] = final_type;
-  final_types[1] = NULL;
-  final_types[2] = NULL;
-  *final_type = base_type;
 
   switch (field)
     {
@@ -1247,172 +1255,198 @@ hppa_som_gen_reloc_type (bfd *abfd,
     case e_psel:
     case e_lpsel:
     case e_rpsel:
+      final_types[0] = final_type;
+      final_types[1] = NULL;
+      final_types[2] = NULL;
+      *final_type = base_type;
       break;
 
     case e_tsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
-      if (!final_types[0])
-	return NULL;
-      *final_types[0] = R_FSEL;
-      final_types[1] = final_type;
-      break;
-
     case e_ltsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
-      if (!final_types[0])
-	return NULL;
-      *final_types[0] = R_LSEL;
-      final_types[1] = final_type;
-      break;
-
     case e_rtsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[0] = bfd_alloc (abfd, amt);
       if (!final_types[0])
 	return NULL;
-      *final_types[0] = R_RSEL;
+      if (field == e_tsel)
+	*final_types[0] = R_FSEL;
+      else if (field == e_ltsel)
+	*final_types[0] = R_LSEL;
+      else
+	*final_types[0] = R_RSEL;
       final_types[1] = final_type;
+      final_types[2] = NULL;
+      *final_type = base_type;
       break;
 
     case e_lssel:
     case e_rssel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[0] = bfd_alloc (abfd, amt);
       if (!final_types[0])
 	return NULL;
       *final_types[0] = R_S_MODE;
       final_types[1] = final_type;
+      final_types[2] = NULL;
+      *final_type = base_type;
       break;
 
     case e_lsel:
     case e_rsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[0] = bfd_alloc (abfd, amt);
       if (!final_types[0])
 	return NULL;
       *final_types[0] = R_N_MODE;
       final_types[1] = final_type;
+      final_types[2] = NULL;
+      *final_type = base_type;
       break;
 
     case e_ldsel:
     case e_rdsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[0] = bfd_alloc (abfd, amt);
       if (!final_types[0])
 	return NULL;
       *final_types[0] = R_D_MODE;
       final_types[1] = final_type;
+      final_types[2] = NULL;
+      *final_type = base_type;
       break;
 
     case e_lrsel:
     case e_rrsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[0] = bfd_alloc (abfd, amt);
       if (!final_types[0])
 	return NULL;
       *final_types[0] = R_R_MODE;
       final_types[1] = final_type;
+      final_types[2] = NULL;
+      *final_type = base_type;
       break;
 
     case e_nsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[0] = bfd_alloc (abfd, amt);
       if (!final_types[0])
 	return NULL;
       *final_types[0] = R_N1SEL;
       final_types[1] = final_type;
+      final_types[2] = NULL;
+      *final_type = base_type;
       break;
 
     case e_nlsel:
     case e_nlrsel:
-      final_types[0] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[0] = bfd_alloc (abfd, amt);
       if (!final_types[0])
 	return NULL;
       *final_types[0] = R_N0SEL;
-      final_types[1] = bfd_alloc (abfd, (bfd_size_type) sizeof (int));
+      final_types[1] = bfd_alloc (abfd, amt);
       if (!final_types[1])
 	return NULL;
-      *final_types[1] = (field == e_nlsel) ? R_N_MODE : R_R_MODE;
+      if (field == e_nlsel)
+	*final_types[1] = R_N_MODE;
+      else
+	*final_types[1] = R_R_MODE;
       final_types[2] = final_type;
       final_types[3] = NULL;
+      *final_type = base_type;
       break;
 
     case e_ltpsel:
     case e_rtpsel:
-      abort ();
-    }
-
-  if (sym_diff && (base_type == R_HPPA || base_type == R_HPPA_COMPLEX))
-    {
-      size_t amt = sizeof (int);
-      final_types[0] = bfd_alloc (abfd, amt);
-      final_types[1] = bfd_alloc (abfd, amt);
-      final_types[2] = bfd_alloc (abfd, amt);
-      final_types[3] = bfd_alloc (abfd, amt);
-      if (!final_types[0] || !final_types[1] || !final_types[2] || !final_types[3])
-        return NULL;
-
-      if (field == e_fsel)
-        *final_types[0] = R_FSEL;
-      else if (field == e_rsel)
-        *final_types[0] = R_RSEL;
-      else if (field == e_lsel)
-        *final_types[0] = R_LSEL;
-      else
-        *final_types[0] = 0;
-
-      *final_types[1] = R_COMP2;
-      *final_types[2] = R_COMP2;
-      *final_types[3] = R_COMP1;
-      final_types[4] = final_type;
-      *final_types[4] = (format == 32) ? R_DATA_EXPR : R_CODE_EXPR;
-      final_types[5] = NULL;
-      return final_types;
+      return NULL;
     }
 
   switch (base_type)
     {
     case R_HPPA:
-      if (field == e_psel || field == e_lpsel || field == e_rpsel)
-        {
-          *final_type = (format == 32) ? R_DATA_PLABEL : R_CODE_PLABEL;
-        }
+      if (sym_diff)
+	{
+	  final_types[0] = bfd_alloc (abfd, amt);
+	  final_types[1] = bfd_alloc (abfd, amt);
+	  final_types[2] = bfd_alloc (abfd, amt);
+	  final_types[3] = bfd_alloc (abfd, amt);
+	  if (!final_types[0] || !final_types[1] || !final_types[2] || !final_types[3])
+	    return NULL;
+	  if (field == e_fsel)
+	    *final_types[0] = R_FSEL;
+	  else if (field == e_rsel)
+	    *final_types[0] = R_RSEL;
+	  else if (field == e_lsel)
+	    *final_types[0] = R_LSEL;
+	  *final_types[1] = R_COMP2;
+	  *final_types[2] = R_COMP2;
+	  *final_types[3] = R_COMP1;
+	  final_types[4] = final_type;
+	  *final_types[4] = (format == 32) ? R_DATA_EXPR : R_CODE_EXPR;
+	  final_types[5] = NULL;
+	  break;
+	}
+      else if (field == e_psel || field == e_lpsel || field == e_rpsel)
+	{
+	  *final_type = (format == 32) ? R_DATA_PLABEL : R_CODE_PLABEL;
+	}
       else if (field == e_tsel || field == e_ltsel || field == e_rtsel)
-        {
-          *final_type = R_DLT_REL;
-        }
+	*final_type = R_DLT_REL;
       else if (format == 32)
-        {
-          *final_type = R_DATA_ONE_SYMBOL;
-          if (som_symbol_data (sym)->som_type == SYMBOL_TYPE_UNKNOWN
-              && (sym->flags & BSF_SECTION_SYM) == 0
-              && (sym->flags & BSF_FUNCTION) == 0
-              && ! bfd_is_com_section (sym->section))
-            som_symbol_data (sym)->som_type = SYMBOL_TYPE_DATA;
-        }
+	{
+	  *final_type = R_DATA_ONE_SYMBOL;
+
+	  if (som_symbol_data (sym)->som_type == SYMBOL_TYPE_UNKNOWN
+	      && (sym->flags & BSF_SECTION_SYM) == 0
+	      && (sym->flags & BSF_FUNCTION) == 0
+	      && ! bfd_is_com_section (sym->section))
+	    som_symbol_data (sym)->som_type = SYMBOL_TYPE_DATA;
+	}
       break;
 
     case R_HPPA_GOTOFF:
       if (field == e_psel || field == e_lpsel || field == e_rpsel)
-        *final_type = R_DATA_PLABEL;
+	*final_type = R_DATA_PLABEL;
       else if (field == e_fsel && format == 32)
-        *final_type = R_DATA_GPREL;
-      break;
-
-    case R_HPPA_PCREL_CALL:
-#ifndef NO_PCREL_MODES
-      {
-        size_t amt = sizeof (int);
-        final_types[0] = bfd_alloc (abfd, amt);
-        if (!final_types[0])
-          return NULL;
-        *final_types[0] = (format == 17) ? R_SHORT_PCREL_MODE : R_LONG_PCREL_MODE;
-        final_types[1] = final_type;
-        final_types[2] = NULL;
-      }
-#endif
+	*final_type = R_DATA_GPREL;
       break;
 
     case R_HPPA_COMPLEX:
+      if (sym_diff)
+	{
+	  final_types[0] = bfd_alloc (abfd, amt);
+	  final_types[1] = bfd_alloc (abfd, amt);
+	  final_types[2] = bfd_alloc (abfd, amt);
+	  final_types[3] = bfd_alloc (abfd, amt);
+	  if (!final_types[0] || !final_types[1] || !final_types[2] || !final_types[3])
+	    return NULL;
+	  if (field == e_fsel)
+	    *final_types[0] = R_FSEL;
+	  else if (field == e_rsel)
+	    *final_types[0] = R_RSEL;
+	  else if (field == e_lsel)
+	    *final_types[0] = R_LSEL;
+	  *final_types[1] = R_COMP2;
+	  *final_types[2] = R_COMP2;
+	  *final_types[3] = R_COMP1;
+	  final_types[4] = final_type;
+	  *final_types[4] = (format == 32) ? R_DATA_EXPR : R_CODE_EXPR;
+	  final_types[5] = NULL;
+	}
+      break;
+
     case R_HPPA_NONE:
     case R_HPPA_ABS_CALL:
       break;
-    }
 
+    case R_HPPA_PCREL_CALL:
+      {
+#ifndef NO_PCREL_MODES
+	final_types[0] = bfd_alloc (abfd, amt);
+	if (!final_types[0])
+	  return NULL;
+	*final_types[0] = (format == 17) ? R_SHORT_PCREL_MODE : R_LONG_PCREL_MODE;
+	final_types[1] = final_type;
+	final_types[2] = NULL;
+	*final_type = base_type;
+#endif
+	break;
+      }
+    }
   return final_types;
 }
 
@@ -1421,60 +1455,55 @@ hppa_som_gen_reloc_type (bfd *abfd,
 
 static reloc_howto_type *
 som_bfd_reloc_type_lookup (bfd *abfd ATTRIBUTE_UNUSED,
-			   bfd_reloc_code_real_type code)
+                          bfd_reloc_code_real_type code)
 {
-  const int max_relocation_code = R_NO_RELOCATION + 255;
-  int code_value = (int) code;
+  int code_int = (int) code;
+  int max_code = (int) R_NO_RELOCATION + 255;
   
-  if (code_value < 0 || code_value >= max_relocation_code)
-    return NULL;
-    
-  if (som_hppa_howto_table[code_value].type != code_value)
-    return NULL;
-    
-  return &som_hppa_howto_table[code_value];
+  if (code_int < 0 || code_int >= max_code)
+    {
+      return NULL;
+    }
+  
+  BFD_ASSERT ((int) som_hppa_howto_table[code_int].type == code_int);
+  return &som_hppa_howto_table[code_int];
 }
 
 static reloc_howto_type *
 som_bfd_reloc_name_lookup (bfd *abfd ATTRIBUTE_UNUSED,
-                          const char *r_name)
+			   const char *r_name)
 {
-  if (r_name == NULL) {
-    return NULL;
-  }
+  unsigned int i;
+  const unsigned int table_size = sizeof (som_hppa_howto_table) / sizeof (som_hppa_howto_table[0]);
 
-  const size_t table_size = sizeof(som_hppa_howto_table) / sizeof(som_hppa_howto_table[0]);
-  
-  for (size_t i = 0; i < table_size; i++) {
-    const reloc_howto_type *entry = &som_hppa_howto_table[i];
-    
-    if (entry->name == NULL) {
-      continue;
+  if (r_name == NULL)
+    return NULL;
+
+  for (i = 0; i < table_size; i++)
+    {
+      if (som_hppa_howto_table[i].name != NULL
+	  && strcasecmp (som_hppa_howto_table[i].name, r_name) == 0)
+        return &som_hppa_howto_table[i];
     }
-    
-    if (strcasecmp(entry->name, r_name) == 0) {
-      return (reloc_howto_type *)entry;
-    }
-  }
 
   return NULL;
 }
 
 static void
-som_swap_clock_in (struct som_external_clock *src,
-		   struct som_clock *dst)
+som_swap_clock_in(struct som_external_clock *src,
+                  struct som_clock *dst)
 {
-  if (src == NULL || dst == NULL) {
-    return;
-  }
-  
-  dst->secs = bfd_getb32 (src->secs);
-  dst->nanosecs = bfd_getb32 (src->nanosecs);
+    if (src == NULL || dst == NULL) {
+        return;
+    }
+    
+    dst->secs = bfd_getb32(src->secs);
+    dst->nanosecs = bfd_getb32(src->nanosecs);
 }
 
 static void
 som_swap_clock_out (struct som_clock *src,
-                    struct som_external_clock *dst)
+		    struct som_external_clock *dst)
 {
   if (src == NULL || dst == NULL) {
     return;
@@ -1488,8 +1517,9 @@ static void
 som_swap_header_in (struct som_external_header *src,
 		    struct som_header *dst)
 {
-  if (src == NULL || dst == NULL)
+  if (!src || !dst) {
     return;
+  }
 
   dst->system_id = bfd_getb16 (src->system_id);
   dst->a_magic = bfd_getb16 (src->a_magic);
@@ -1527,11 +1557,10 @@ som_swap_header_in (struct som_external_header *src,
 
 static void
 som_swap_header_out (struct som_header *src,
-                    struct som_external_header *dst)
+		    struct som_external_header *dst)
 {
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst)
     return;
-  }
 
   bfd_putb16 (src->system_id, dst->system_id);
   bfd_putb16 (src->a_magic, dst->a_magic);
@@ -1573,9 +1602,8 @@ som_swap_space_dictionary_in (struct som_external_space_dictionary_record *src,
 {
   unsigned int flags;
 
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst)
     return;
-  }
 
   dst->name = bfd_getb32 (src->name);
   flags = bfd_getb32 (src->flags);
@@ -1598,15 +1626,16 @@ som_swap_space_dictionary_in (struct som_external_space_dictionary_record *src,
 
 static void
 som_swap_space_dictionary_out (struct som_space_dictionary_record *src,
-			       struct som_external_space_dictionary_record *dst)
+                               struct som_external_space_dictionary_record *dst)
 {
-  unsigned int flags = 0;
+  unsigned int flags;
 
-  if (src == NULL || dst == NULL)
+  if (!src || !dst)
     return;
 
   bfd_putb32 (src->name, dst->name);
 
+  flags = 0;
   if (src->is_loadable)
     flags |= SOM_SPACE_IS_LOADABLE;
   if (src->is_defined)
@@ -1618,7 +1647,7 @@ som_swap_space_dictionary_out (struct som_space_dictionary_record *src,
   if (src->is_tspecific)
     flags |= SOM_SPACE_IS_TSPECIFIC;
   flags |= (src->sort_key & SOM_SPACE_SORT_KEY_MASK) << SOM_SPACE_SORT_KEY_SH;
-  
+
   bfd_putb32 (flags, dst->flags);
   bfd_putb32 (src->space_number, dst->space_number);
   bfd_putb32 (src->subspace_index, dst->subspace_index);
@@ -1636,37 +1665,38 @@ som_swap_subspace_dictionary_in
 {
   unsigned int flags;
   
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst) {
     return;
   }
   
-  dst->space_index = bfd_getb32(src->space_index);
-  flags = bfd_getb32(src->flags);
+  dst->space_index = bfd_getb32 (src->space_index);
+  flags = bfd_getb32 (src->flags);
   
   dst->access_control_bits = (flags >> SOM_SUBSPACE_ACCESS_CONTROL_BITS_SH) & SOM_SUBSPACE_ACCESS_CONTROL_BITS_MASK;
+  dst->quadrant = (flags >> SOM_SUBSPACE_QUADRANT_SH) & SOM_SUBSPACE_QUADRANT_MASK;
+  dst->sort_key = (flags >> SOM_SUBSPACE_SORT_KEY_SH) & SOM_SUBSPACE_SORT_KEY_MASK;
+  
   dst->memory_resident = (flags & SOM_SUBSPACE_MEMORY_RESIDENT) != 0;
   dst->dup_common = (flags & SOM_SUBSPACE_DUP_COMMON) != 0;
   dst->is_common = (flags & SOM_SUBSPACE_IS_COMMON) != 0;
   dst->is_loadable = (flags & SOM_SUBSPACE_IS_LOADABLE) != 0;
-  dst->quadrant = (flags >> SOM_SUBSPACE_QUADRANT_SH) & SOM_SUBSPACE_QUADRANT_MASK;
   dst->initially_frozen = (flags & SOM_SUBSPACE_INITIALLY_FROZEN) != 0;
   dst->is_first = (flags & SOM_SUBSPACE_IS_FIRST) != 0;
   dst->code_only = (flags & SOM_SUBSPACE_CODE_ONLY) != 0;
-  dst->sort_key = (flags >> SOM_SUBSPACE_SORT_KEY_SH) & SOM_SUBSPACE_SORT_KEY_MASK;
   dst->replicate_init = (flags & SOM_SUBSPACE_REPLICATE_INIT) != 0;
   dst->continuation = (flags & SOM_SUBSPACE_CONTINUATION) != 0;
   dst->is_tspecific = (flags & SOM_SUBSPACE_IS_TSPECIFIC) != 0;
   dst->is_comdat = (flags & SOM_SUBSPACE_IS_COMDAT) != 0;
-  dst->reserved = 0;
   
-  dst->file_loc_init_value = bfd_getb32(src->file_loc_init_value);
-  dst->initialization_length = bfd_getb32(src->initialization_length);
-  dst->subspace_start = bfd_getb32(src->subspace_start);
-  dst->subspace_length = bfd_getb32(src->subspace_length);
-  dst->alignment = bfd_getb32(src->alignment);
-  dst->name = bfd_getb32(src->name);
-  dst->fixup_request_index = bfd_getb32(src->fixup_request_index);
-  dst->fixup_request_quantity = bfd_getb32(src->fixup_request_quantity);
+  dst->reserved = 0;
+  dst->file_loc_init_value = bfd_getb32 (src->file_loc_init_value);
+  dst->initialization_length = bfd_getb32 (src->initialization_length);
+  dst->subspace_start = bfd_getb32 (src->subspace_start);
+  dst->subspace_length = bfd_getb32 (src->subspace_length);
+  dst->alignment = bfd_getb32 (src->alignment);
+  dst->name = bfd_getb32 (src->name);
+  dst->fixup_request_index = bfd_getb32 (src->fixup_request_index);
+  dst->fixup_request_quantity = bfd_getb32 (src->fixup_request_quantity);
 }
 
 static void
@@ -1674,49 +1704,61 @@ som_swap_subspace_dictionary_record_out
   (struct som_subspace_dictionary_record *src,
    struct som_external_subspace_dictionary_record *dst)
 {
-  unsigned int flags = 0;
-
-  if (!src || !dst) {
+  unsigned int flags;
+  
+  if (!src || !dst)
     return;
-  }
 
-  bfd_putb32 (src->space_index, dst->space_index);
+  bfd_putb32(src->space_index, dst->space_index);
   
   flags = (src->access_control_bits & SOM_SUBSPACE_ACCESS_CONTROL_BITS_MASK)
     << SOM_SUBSPACE_ACCESS_CONTROL_BITS_SH;
+  
   flags |= (src->quadrant & SOM_SUBSPACE_QUADRANT_MASK)
     << SOM_SUBSPACE_QUADRANT_SH;
+  
   flags |= (src->sort_key & SOM_SUBSPACE_SORT_KEY_MASK)
     << SOM_SUBSPACE_SORT_KEY_SH;
   
-  flags |= src->memory_resident ? SOM_SUBSPACE_MEMORY_RESIDENT : 0;
-  flags |= src->dup_common ? SOM_SUBSPACE_DUP_COMMON : 0;
-  flags |= src->is_common ? SOM_SUBSPACE_IS_COMMON : 0;
-  flags |= src->is_loadable ? SOM_SUBSPACE_IS_LOADABLE : 0;
-  flags |= src->initially_frozen ? SOM_SUBSPACE_INITIALLY_FROZEN : 0;
-  flags |= src->is_first ? SOM_SUBSPACE_IS_FIRST : 0;
-  flags |= src->code_only ? SOM_SUBSPACE_CODE_ONLY : 0;
-  flags |= src->replicate_init ? SOM_SUBSPACE_REPLICATE_INIT : 0;
-  flags |= src->continuation ? SOM_SUBSPACE_CONTINUATION : 0;
-  flags |= src->is_tspecific ? SOM_SUBSPACE_IS_TSPECIFIC : 0;
-  flags |= src->is_comdat ? SOM_SUBSPACE_IS_COMDAT : 0;
+  if (src->memory_resident)
+    flags |= SOM_SUBSPACE_MEMORY_RESIDENT;
+  if (src->dup_common)
+    flags |= SOM_SUBSPACE_DUP_COMMON;
+  if (src->is_common)
+    flags |= SOM_SUBSPACE_IS_COMMON;
+  if (src->is_loadable)
+    flags |= SOM_SUBSPACE_IS_LOADABLE;
+  if (src->initially_frozen)
+    flags |= SOM_SUBSPACE_INITIALLY_FROZEN;
+  if (src->is_first)
+    flags |= SOM_SUBSPACE_IS_FIRST;
+  if (src->code_only)
+    flags |= SOM_SUBSPACE_CODE_ONLY;
+  if (src->replicate_init)
+    flags |= SOM_SUBSPACE_REPLICATE_INIT;
+  if (src->continuation)
+    flags |= SOM_SUBSPACE_CONTINUATION;
+  if (src->is_tspecific)
+    flags |= SOM_SUBSPACE_IS_TSPECIFIC;
+  if (src->is_comdat)
+    flags |= SOM_SUBSPACE_IS_COMDAT;
   
-  bfd_putb32 (flags, dst->flags);
-  bfd_putb32 (src->file_loc_init_value, dst->file_loc_init_value);
-  bfd_putb32 (src->initialization_length, dst->initialization_length);
-  bfd_putb32 (src->subspace_start, dst->subspace_start);
-  bfd_putb32 (src->subspace_length, dst->subspace_length);
-  bfd_putb32 (src->alignment, dst->alignment);
-  bfd_putb32 (src->name, dst->name);
-  bfd_putb32 (src->fixup_request_index, dst->fixup_request_index);
-  bfd_putb32 (src->fixup_request_quantity, dst->fixup_request_quantity);
+  bfd_putb32(flags, dst->flags);
+  bfd_putb32(src->file_loc_init_value, dst->file_loc_init_value);
+  bfd_putb32(src->initialization_length, dst->initialization_length);
+  bfd_putb32(src->subspace_start, dst->subspace_start);
+  bfd_putb32(src->subspace_length, dst->subspace_length);
+  bfd_putb32(src->alignment, dst->alignment);
+  bfd_putb32(src->name, dst->name);
+  bfd_putb32(src->fixup_request_index, dst->fixup_request_index);
+  bfd_putb32(src->fixup_request_quantity, dst->fixup_request_quantity);
 }
 
 static void
 som_swap_aux_id_in (struct som_external_aux_id *src,
 		    struct som_aux_id *dst)
 {
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst) {
     return;
   }
 
@@ -1732,28 +1774,17 @@ som_swap_aux_id_in (struct som_external_aux_id *src,
 
 static void
 som_swap_aux_id_out (struct som_aux_id *src,
-                     struct som_external_aux_id *dst)
+		    struct som_external_aux_id *dst)
 {
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst)
     return;
-  }
-
-  unsigned int flags = 0;
-
-  if (src->mandatory) {
-    flags |= SOM_AUX_ID_MANDATORY;
-  }
-  if (src->copy) {
-    flags |= SOM_AUX_ID_COPY;
-  }
-  if (src->append) {
-    flags |= SOM_AUX_ID_APPEND;
-  }
-  if (src->ignore) {
-    flags |= SOM_AUX_ID_IGNORE;
-  }
+    
+  unsigned int flags = (src->type & SOM_AUX_ID_TYPE_MASK) << SOM_AUX_ID_TYPE_SH;
   
-  flags |= (src->type & SOM_AUX_ID_TYPE_MASK) << SOM_AUX_ID_TYPE_SH;
+  flags |= src->mandatory ? SOM_AUX_ID_MANDATORY : 0;
+  flags |= src->copy ? SOM_AUX_ID_COPY : 0;
+  flags |= src->append ? SOM_AUX_ID_APPEND : 0;
+  flags |= src->ignore ? SOM_AUX_ID_IGNORE : 0;
   
   bfd_putb32 (flags, dst->flags);
   bfd_putb32 (src->length, dst->length);
@@ -1761,7 +1792,7 @@ som_swap_aux_id_out (struct som_aux_id *src,
 
 static void
 som_swap_string_auxhdr_out (struct som_string_auxhdr *src,
-                            struct som_external_string_auxhdr *dst)
+			    struct som_external_string_auxhdr *dst)
 {
   if (src == NULL || dst == NULL) {
     return;
@@ -1772,30 +1803,29 @@ som_swap_string_auxhdr_out (struct som_string_auxhdr *src,
 }
 
 static void
-som_swap_compilation_unit_out (struct som_compilation_unit *src,
-                               struct som_external_compilation_unit *dst)
+som_swap_compilation_unit_out(struct som_compilation_unit *src,
+                              struct som_external_compilation_unit *dst)
 {
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst) {
     return;
   }
 
-  bfd_putb32 (src->name.strx, dst->name);
-  bfd_putb32 (src->language_name.strx, dst->language_name);
-  bfd_putb32 (src->product_id.strx, dst->product_id);
-  bfd_putb32 (src->version_id.strx, dst->version_id);
-  bfd_putb32 (src->flags, dst->flags);
-  som_swap_clock_out (&src->compile_time, &dst->compile_time);
-  som_swap_clock_out (&src->source_time, &dst->source_time);
+  bfd_putb32(src->name.strx, dst->name);
+  bfd_putb32(src->language_name.strx, dst->language_name);
+  bfd_putb32(src->product_id.strx, dst->product_id);
+  bfd_putb32(src->version_id.strx, dst->version_id);
+  bfd_putb32(src->flags, dst->flags);
+  som_swap_clock_out(&src->compile_time, &dst->compile_time);
+  som_swap_clock_out(&src->source_time, &dst->source_time);
 }
 
 static void
 som_swap_exec_auxhdr_in (struct som_external_exec_auxhdr *src,
 			 struct som_exec_auxhdr *dst)
 {
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst)
     return;
-  }
-  
+
   som_swap_aux_id_in (&src->som_auxhdr, &dst->som_auxhdr);
   dst->exec_tsize = bfd_getb32 (src->exec_tsize);
   dst->exec_tmem = bfd_getb32 (src->exec_tmem);
@@ -1813,10 +1843,10 @@ static void
 som_swap_exec_auxhdr_out (struct som_exec_auxhdr *src,
 			 struct som_external_exec_auxhdr *dst)
 {
-  if (src == NULL || dst == NULL) {
+  if (!src || !dst) {
     return;
   }
-  
+
   som_swap_aux_id_out (&src->som_auxhdr, &dst->som_auxhdr);
   bfd_putb32 (src->exec_tsize, dst->exec_tsize);
   bfd_putb32 (src->exec_tmem, dst->exec_tmem);
@@ -1834,8 +1864,9 @@ static void
 som_swap_lst_header_in (struct som_external_lst_header *src,
 			struct som_lst_header *dst)
 {
-  if (src == NULL || dst == NULL)
+  if (!src || !dst) {
     return;
+  }
 
   dst->system_id = bfd_getb16 (src->system_id);
   dst->a_magic = bfd_getb16 (src->a_magic);
@@ -1867,6 +1898,11 @@ som_object_setup (bfd *abfd,
 		  struct som_exec_auxhdr *aux_hdrp,
 		  unsigned long current_offset)
 {
+  asection *section;
+
+  if (abfd == NULL || file_hdrp == NULL)
+    return NULL;
+
   if (!som_mkobject (abfd))
     return NULL;
 
@@ -1890,43 +1926,43 @@ som_object_setup (bfd *abfd,
       break;
 #ifdef SHL_MAGIC
     case SHL_MAGIC:
+      abfd->flags |= DYNAMIC;
+      break;
 #endif
 #ifdef DL_MAGIC
     case DL_MAGIC:
-#endif
       abfd->flags |= DYNAMIC;
       break;
+#endif
     default:
       break;
     }
 
   obj_som_exec_hdr (abfd) = aux_hdrp;
 
-  obj_som_exec_data (abfd) = bfd_zalloc (abfd, (bfd_size_type) sizeof (struct som_exec_data));
+  obj_som_exec_data (abfd) = bfd_zalloc (abfd, sizeof (struct som_exec_data));
   if (obj_som_exec_data (abfd) == NULL)
     return NULL;
 
-  if (aux_hdrp)
+  if (aux_hdrp != NULL)
     {
-      bfd_vma entry_point = aux_hdrp->exec_entry + aux_hdrp->exec_tmem;
-      int entry_in_code_section = 0;
+      int found = 0;
+      bfd_vma entry = aux_hdrp->exec_entry + aux_hdrp->exec_tmem;
 
-      for (asection *section = abfd->sections; section; section = section->next)
+      for (section = abfd->sections; section != NULL; section = section->next)
 	{
 	  if ((section->flags & SEC_CODE) == 0)
 	    continue;
-	  if (entry_point >= section->vma && entry_point < section->vma + section->size)
+	  if (entry >= section->vma && entry < section->vma + section->size)
 	    {
-	      entry_in_code_section = 1;
+	      found = 1;
 	      break;
 	    }
 	}
 
-      int is_main_program = !(abfd->flags & DYNAMIC);
-      int entry_is_zero = (aux_hdrp->exec_entry == 0);
-      int entry_misaligned = ((aux_hdrp->exec_entry & 0x3) != 0);
-      
-      if ((entry_is_zero && is_main_program) || entry_misaligned || !entry_in_code_section)
+      if ((aux_hdrp->exec_entry == 0 && !(abfd->flags & DYNAMIC))
+	  || (aux_hdrp->exec_entry & 0x3) != 0
+	  || !found)
 	{
 	  abfd->start_address = aux_hdrp->exec_flags;
 	  obj_som_exec_data (abfd)->exec_flags = aux_hdrp->exec_entry;
@@ -1972,366 +2008,241 @@ setup_sections (bfd *abfd,
   asection **subspace_sections = NULL;
   asection *section;
   size_t amt;
-  bool result = false;
 
   amt = file_hdr->space_strings_size;
   if (amt == (size_t) -1)
     {
       bfd_set_error (bfd_error_no_memory);
-      return false;
+      goto error_return;
     }
-  
   if (bfd_seek (abfd, current_offset + file_hdr->space_strings_location,
 		SEEK_SET) != 0)
-    return false;
-    
+    goto error_return;
   space_strings = (char *) _bfd_malloc_and_read (abfd, amt + 1, amt);
   if (space_strings == NULL)
-    return false;
+    goto error_return;
   space_strings[amt] = 0;
 
   for (space_index = 0; space_index < file_hdr->space_total; space_index++)
     {
-      if (!process_space_dictionary(abfd, file_hdr, current_offset, 
-                                    space_index, space_strings, 
-                                    &total_subspaces))
-        goto cleanup;
+      struct som_space_dictionary_record space;
+      struct som_external_space_dictionary_record ext_space;
+      char *space_name;
+      struct som_external_subspace_dictionary_record ext_subspace;
+      struct som_subspace_dictionary_record subspace, save_subspace;
+      unsigned int subspace_index;
+      asection *space_asect;
+      bfd_size_type space_size = 0;
+      char *newname;
+
+      if (bfd_seek (abfd,
+		    (current_offset + file_hdr->space_location
+		     + space_index * sizeof (ext_space)),
+		    SEEK_SET) != 0)
+	goto error_return;
+      amt = sizeof ext_space;
+      if (bfd_read (&ext_space, amt, abfd) != amt)
+	goto error_return;
+
+      som_swap_space_dictionary_in (&ext_space, &space);
+
+      if (space.name >= file_hdr->space_strings_size)
+	goto error_return;
+
+      space_name = space.name + space_strings;
+
+      amt = strlen (space_name) + 1;
+      newname = bfd_alloc (abfd, amt);
+      if (!newname)
+	goto error_return;
+      strcpy (newname, space_name);
+
+      space_asect = bfd_make_section_anyway (abfd, newname);
+      if (!space_asect)
+	goto error_return;
+
+      if (space.is_loadable == 0)
+	space_asect->flags |= SEC_DEBUGGING;
+
+      if (! bfd_som_set_section_attributes (space_asect, space.is_defined,
+					    space.is_private, space.sort_key,
+					    space.space_number))
+	goto error_return;
+
+      if (space.subspace_quantity == 0)
+	continue;
+
+      if (bfd_seek (abfd,
+		    (current_offset + file_hdr->subspace_location
+		     + space.subspace_index * sizeof ext_subspace),
+		    SEEK_SET) != 0)
+	goto error_return;
+      amt = sizeof ext_subspace;
+      if (bfd_read (&ext_subspace, amt, abfd) != amt)
+	goto error_return;
+      if (bfd_seek (abfd,
+		    (current_offset + file_hdr->subspace_location
+		     + space.subspace_index * sizeof ext_subspace),
+		    SEEK_SET) != 0)
+	goto error_return;
+
+      som_swap_subspace_dictionary_in (&ext_subspace, &subspace);
+
+      space_asect->vma = subspace.subspace_start;
+      space_asect->filepos = subspace.file_loc_init_value + current_offset;
+      space_asect->alignment_power = exact_log2 (subspace.alignment);
+      if (space_asect->alignment_power == (unsigned) -1)
+	goto error_return;
+
+      memset (&save_subspace, 0, sizeof (save_subspace));
+
+      for (subspace_index = 0; subspace_index < space.subspace_quantity;
+	   subspace_index++)
+	{
+	  asection *subspace_asect;
+	  char *subspace_name;
+
+	  amt = sizeof ext_subspace;
+	  if (bfd_read (&ext_subspace, amt, abfd) != amt)
+	    goto error_return;
+
+	  som_swap_subspace_dictionary_in (&ext_subspace, &subspace);
+
+	  if (subspace.name >= file_hdr->space_strings_size)
+	    goto error_return;
+
+	  subspace_name = subspace.name + space_strings;
+
+	  amt = strlen (subspace_name) + 1;
+	  newname = bfd_alloc (abfd, amt);
+	  if (!newname)
+	    goto error_return;
+	  strcpy (newname, subspace_name);
+
+	  subspace_asect = bfd_make_section_anyway (abfd, newname);
+	  if (!subspace_asect)
+	    goto error_return;
+
+	  if (! bfd_som_set_subsection_attributes (subspace_asect, space_asect,
+						   subspace.access_control_bits,
+						   subspace.sort_key,
+						   subspace.quadrant,
+						   subspace.is_comdat,
+						   subspace.is_common,
+						   subspace.dup_common))
+	    goto error_return;
+
+	  total_subspaces++;
+	  subspace_asect->target_index = bfd_tell (abfd) - sizeof (subspace);
+
+	  switch (subspace.access_control_bits >> 4)
+	    {
+	    case 0x0:
+	      subspace_asect->flags |= SEC_DATA | SEC_READONLY;
+	      break;
+	    case 0x1:
+	      subspace_asect->flags |= SEC_DATA;
+	      break;
+	    case 0x2:
+	    case 0x4:
+	    case 0x5:
+	    case 0x6:
+	    case 0x7:
+	      subspace_asect->flags |= SEC_CODE | SEC_READONLY;
+	      break;
+	    case 0x3:
+	      subspace_asect->flags |= SEC_CODE;
+	      break;
+	    }
+
+	  if (subspace.is_comdat || subspace.is_common || subspace.dup_common)
+	    subspace_asect->flags |= SEC_LINK_ONCE;
+
+	  if (subspace.subspace_length > 0)
+	    subspace_asect->flags |= SEC_HAS_CONTENTS;
+
+	  if (subspace.is_loadable)
+	    subspace_asect->flags |= SEC_ALLOC | SEC_LOAD;
+	  else
+	    subspace_asect->flags |= SEC_DEBUGGING;
+
+	  if (subspace.code_only)
+	    subspace_asect->flags |= SEC_CODE;
+
+	  if (subspace.file_loc_init_value == 0
+	      && subspace.initialization_length == 0)
+	    subspace_asect->flags &= ~(SEC_DATA | SEC_LOAD | SEC_HAS_CONTENTS);
+
+	  if (subspace.fixup_request_quantity != 0)
+	    {
+	      subspace_asect->flags |= SEC_RELOC;
+	      subspace_asect->rel_filepos = subspace.fixup_request_index;
+	      som_section_data (subspace_asect)->reloc_size
+		= subspace.fixup_request_quantity;
+	      subspace_asect->reloc_count = (unsigned) -1;
+	    }
+
+	  if (subspace.file_loc_init_value > save_subspace.file_loc_init_value)
+	    save_subspace = subspace;
+
+	  subspace_asect->vma = subspace.subspace_start;
+	  subspace_asect->size = subspace.subspace_length;
+	  subspace_asect->filepos = (subspace.file_loc_init_value
+				     + current_offset);
+	  subspace_asect->alignment_power = exact_log2 (subspace.alignment);
+	  if (subspace_asect->alignment_power == (unsigned) -1)
+	    goto error_return;
+
+	  space_size += subspace.subspace_length;
+	}
+
+      if (!save_subspace.file_loc_init_value)
+	space_asect->size = 0;
+      else
+	{
+	  if (file_hdr->a_magic != RELOC_MAGIC)
+	    {
+	      space_asect->size = (save_subspace.subspace_start
+				   - space_asect->vma
+				   + save_subspace.subspace_length);
+	    }
+	  else
+	    {
+	      space_asect->size = space_size;
+	    }
+	}
     }
-
-  if (!assign_subspace_indices(abfd, total_subspaces, &subspace_sections))
-    goto cleanup;
-
-  result = true;
-
-cleanup:
-  free (space_strings);
-  free (subspace_sections);
-  return result;
-}
-
-static bool
-process_space_dictionary(bfd *abfd, struct som_header *file_hdr,
-                         unsigned long current_offset, unsigned int space_index,
-                         char *space_strings, unsigned int *total_subspaces)
-{
-  struct som_space_dictionary_record space;
-  struct som_external_space_dictionary_record ext_space;
-  asection *space_asect;
-  size_t amt;
-
-  if (!read_space_dictionary(abfd, file_hdr, current_offset, 
-                             space_index, &ext_space, &space))
-    return false;
-
-  if (space.name >= file_hdr->space_strings_size)
-    return false;
-
-  space_asect = create_space_section(abfd, space_strings + space.name, &space);
-  if (!space_asect)
-    return false;
-
-  if (space.subspace_quantity == 0)
-    return true;
-
-  return process_subspaces(abfd, file_hdr, current_offset, &space,
-                           space_asect, space_strings, total_subspaces);
-}
-
-static bool
-read_space_dictionary(bfd *abfd, struct som_header *file_hdr,
-                     unsigned long current_offset, unsigned int space_index,
-                     struct som_external_space_dictionary_record *ext_space,
-                     struct som_space_dictionary_record *space)
-{
-  size_t amt = sizeof(*ext_space);
-  
-  if (bfd_seek (abfd, current_offset + file_hdr->space_location
-                + space_index * amt, SEEK_SET) != 0)
-    return false;
-    
-  if (bfd_read (ext_space, amt, abfd) != amt)
-    return false;
-
-  som_swap_space_dictionary_in (ext_space, space);
-  return true;
-}
-
-static asection *
-create_space_section(bfd *abfd, char *space_name, 
-                    struct som_space_dictionary_record *space)
-{
-  size_t amt = strlen (space_name) + 1;
-  char *newname = bfd_alloc (abfd, amt);
-  asection *space_asect;
-  
-  if (!newname)
-    return NULL;
-    
-  strcpy (newname, space_name);
-
-  space_asect = bfd_make_section_anyway (abfd, newname);
-  if (!space_asect)
-    return NULL;
-
-  if (space->is_loadable == 0)
-    space_asect->flags |= SEC_DEBUGGING;
-
-  if (!bfd_som_set_section_attributes (space_asect, space->is_defined,
-                                       space->is_private, space->sort_key,
-                                       space->space_number))
-    return NULL;
-
-  return space_asect;
-}
-
-static bool
-process_subspaces(bfd *abfd, struct som_header *file_hdr,
-                 unsigned long current_offset,
-                 struct som_space_dictionary_record *space,
-                 asection *space_asect, char *space_strings,
-                 unsigned int *total_subspaces)
-{
-  struct som_external_subspace_dictionary_record ext_subspace;
-  struct som_subspace_dictionary_record subspace, save_subspace;
-  bfd_size_type space_size = 0;
-  unsigned int subspace_index;
-  size_t amt = sizeof(ext_subspace);
-
-  if (!seek_to_subspace(abfd, file_hdr, current_offset, 
-                        space->subspace_index))
-    return false;
-
-  if (bfd_read (&ext_subspace, amt, abfd) != amt)
-    return false;
-
-  som_swap_subspace_dictionary_in (&ext_subspace, &subspace);
-  
-  if (!initialize_space_section(space_asect, &subspace, current_offset))
-    return false;
-
-  if (!seek_to_subspace(abfd, file_hdr, current_offset, 
-                        space->subspace_index))
-    return false;
-
-  memset (&save_subspace, 0, sizeof (save_subspace));
-
-  for (subspace_index = 0; subspace_index < space->subspace_quantity;
-       subspace_index++)
-    {
-      if (!process_single_subspace(abfd, file_hdr, space_asect,
-                                   space_strings, &save_subspace,
-                                   &space_size, current_offset,
-                                   total_subspaces))
-        return false;
-    }
-
-  set_space_section_size(space_asect, &save_subspace, space_size, 
-                        file_hdr->a_magic);
-  return true;
-}
-
-static bool
-seek_to_subspace(bfd *abfd, struct som_header *file_hdr,
-                unsigned long current_offset, unsigned int index)
-{
-  return bfd_seek (abfd, current_offset + file_hdr->subspace_location
-                  + index * sizeof(struct som_external_subspace_dictionary_record),
-                  SEEK_SET) == 0;
-}
-
-static bool
-initialize_space_section(asection *space_asect,
-                        struct som_subspace_dictionary_record *subspace,
-                        unsigned long current_offset)
-{
-  space_asect->vma = subspace->subspace_start;
-  space_asect->filepos = subspace->file_loc_init_value + current_offset;
-  space_asect->alignment_power = exact_log2 (subspace->alignment);
-  
-  return space_asect->alignment_power != (unsigned) -1;
-}
-
-static bool
-process_single_subspace(bfd *abfd, struct som_header *file_hdr,
-                       asection *space_asect, char *space_strings,
-                       struct som_subspace_dictionary_record *save_subspace,
-                       bfd_size_type *space_size, unsigned long current_offset,
-                       unsigned int *total_subspaces)
-{
-  struct som_external_subspace_dictionary_record ext_subspace;
-  struct som_subspace_dictionary_record subspace;
-  asection *subspace_asect;
-  size_t amt = sizeof(ext_subspace);
-
-  if (bfd_read (&ext_subspace, amt, abfd) != amt)
-    return false;
-
-  som_swap_subspace_dictionary_in (&ext_subspace, &subspace);
-
-  if (subspace.name >= file_hdr->space_strings_size)
-    return false;
-
-  subspace_asect = create_subspace_section(abfd, space_strings + subspace.name);
-  if (!subspace_asect)
-    return false;
-
-  if (!bfd_som_set_subsection_attributes (subspace_asect, space_asect,
-                                          subspace.access_control_bits,
-                                          subspace.sort_key,
-                                          subspace.quadrant,
-                                          subspace.is_comdat,
-                                          subspace.is_common,
-                                          subspace.dup_common))
-    return false;
-
-  (*total_subspaces)++;
-  subspace_asect->target_index = bfd_tell (abfd) - sizeof (subspace);
-
-  set_subspace_flags(subspace_asect, &subspace);
-  set_subspace_properties(subspace_asect, &subspace, current_offset);
-
-  if (subspace_asect->alignment_power == (unsigned) -1)
-    return false;
-
-  if (subspace.file_loc_init_value > save_subspace->file_loc_init_value)
-    *save_subspace = subspace;
-
-  *space_size += subspace.subspace_length;
-  return true;
-}
-
-static asection *
-create_subspace_section(bfd *abfd, char *subspace_name)
-{
-  size_t amt = strlen (subspace_name) + 1;
-  char *newname = bfd_alloc (abfd, amt);
-  
-  if (!newname)
-    return NULL;
-    
-  strcpy (newname, subspace_name);
-  return bfd_make_section_anyway (abfd, newname);
-}
-
-static void
-set_subspace_flags(asection *subspace_asect,
-                  struct som_subspace_dictionary_record *subspace)
-{
-  unsigned int access_bits = subspace->access_control_bits >> 4;
-  
-  switch (access_bits)
-    {
-    case 0x0:
-      subspace_asect->flags |= SEC_DATA | SEC_READONLY;
-      break;
-    case 0x1:
-      subspace_asect->flags |= SEC_DATA;
-      break;
-    case 0x2:
-    case 0x4:
-    case 0x5:
-    case 0x6:
-    case 0x7:
-      subspace_asect->flags |= SEC_CODE | SEC_READONLY;
-      break;
-    case 0x3:
-      subspace_asect->flags |= SEC_CODE;
-      break;
-    }
-
-  if (subspace->is_comdat || subspace->is_common || subspace->dup_common)
-    subspace_asect->flags |= SEC_LINK_ONCE;
-
-  if (subspace->subspace_length > 0)
-    subspace_asect->flags |= SEC_HAS_CONTENTS;
-
-  if (subspace->is_loadable)
-    subspace_asect->flags |= SEC_ALLOC | SEC_LOAD;
-  else
-    subspace_asect->flags |= SEC_DEBUGGING;
-
-  if (subspace->code_only)
-    subspace_asect->flags |= SEC_CODE;
-
-  if (subspace->file_loc_init_value == 0
-      && subspace->initialization_length == 0)
-    subspace_asect->flags &= ~(SEC_DATA | SEC_LOAD | SEC_HAS_CONTENTS);
-
-  if (subspace->fixup_request_quantity != 0)
-    {
-      subspace_asect->flags |= SEC_RELOC;
-      subspace_asect->rel_filepos = subspace->fixup_request_index;
-      som_section_data (subspace_asect)->reloc_size
-        = subspace->fixup_request_quantity;
-      subspace_asect->reloc_count = (unsigned) -1;
-    }
-}
-
-static void
-set_subspace_properties(asection *subspace_asect,
-                       struct som_subspace_dictionary_record *subspace,
-                       unsigned long current_offset)
-{
-  subspace_asect->vma = subspace->subspace_start;
-  subspace_asect->size = subspace->subspace_length;
-  subspace_asect->filepos = subspace->file_loc_init_value + current_offset;
-  subspace_asect->alignment_power = exact_log2 (subspace->alignment);
-}
-
-static void
-set_space_section_size(asection *space_asect,
-                      struct som_subspace_dictionary_record *save_subspace,
-                      bfd_size_type space_size, unsigned int magic)
-{
-  if (!save_subspace->file_loc_init_value)
-    {
-      space_asect->size = 0;
-    }
-  else if (magic != RELOC_MAGIC)
-    {
-      space_asect->size = (save_subspace->subspace_start
-                          - space_asect->vma
-                          + save_subspace->subspace_length);
-    }
-  else
-    {
-      space_asect->size = space_size;
-    }
-}
-
-static bool
-assign_subspace_indices(bfd *abfd, unsigned int total_subspaces,
-                       asection ***subspace_sections_ptr)
-{
-  asection *section;
-  unsigned int i;
-  size_t amt;
-
   if (_bfd_mul_overflow (total_subspaces, sizeof (asection *), &amt))
     {
       bfd_set_error (bfd_error_file_too_big);
-      return false;
+      goto error_return;
     }
-    
-  *subspace_sections_ptr = bfd_malloc (amt);
-  if (*subspace_sections_ptr == NULL)
-    return false;
+  subspace_sections = bfd_malloc (amt);
+  if (subspace_sections == NULL)
+    goto error_return;
 
   for (i = 0, section = abfd->sections; section; section = section->next)
     {
       if (!som_is_subspace (section))
-        continue;
-      (*subspace_sections_ptr)[i] = section;
+	continue;
+
+      subspace_sections[i] = section;
       i++;
     }
-    
-  qsort (*subspace_sections_ptr, total_subspaces,
-         sizeof (asection *), compare_subspaces);
+  qsort (subspace_sections, total_subspaces,
+	 sizeof (asection *), compare_subspaces);
 
   for (i = 0; i < total_subspaces; i++)
-    (*subspace_sections_ptr)[i]->target_index = i;
+    subspace_sections[i]->target_index = i;
 
+  free (space_strings);
+  free (subspace_sections);
   return true;
+
+ error_return:
+  free (space_strings);
+  free (subspace_sections);
+  return false;
 }
 
 
@@ -2344,7 +2255,13 @@ som_object_p (bfd *abfd)
   struct som_header file_hdr;
   struct som_exec_auxhdr *aux_hdr_ptr = NULL;
   unsigned long current_offset = 0;
+  struct som_external_lst_header ext_lst_header;
+  struct som_external_som_entry ext_som_entry;
   size_t amt;
+  unsigned int loc;
+
+  if (!abfd)
+    return NULL;
 
   amt = sizeof (struct som_external_header);
   if (bfd_read (&ext_file_hdr, amt, abfd) != amt)
@@ -2362,19 +2279,76 @@ som_object_p (bfd *abfd)
       return NULL;
     }
 
-  if (file_hdr.a_magic == EXECLIBMAGIC)
+  switch (file_hdr.a_magic)
     {
-      if (!read_execlibmagic_header (abfd, &ext_file_hdr, &file_hdr, &current_offset))
-        return NULL;
-    }
-  else if (!is_valid_magic (file_hdr.a_magic))
-    {
+    case RELOC_MAGIC:
+    case EXEC_MAGIC:
+    case SHARE_MAGIC:
+    case DEMAND_MAGIC:
+    case DL_MAGIC:
+    case SHL_MAGIC:
+#ifdef SHARED_MAGIC_CNX
+    case SHARED_MAGIC_CNX:
+#endif
+      break;
+
+    case EXECLIBMAGIC:
+      if (bfd_seek (abfd, 0, SEEK_SET) != 0)
+        {
+          if (bfd_get_error () != bfd_error_system_call)
+            bfd_set_error (bfd_error_wrong_format);
+          return NULL;
+        }
+
+      amt = sizeof (struct som_external_lst_header);
+      if (bfd_read (&ext_lst_header, amt, abfd) != amt)
+        {
+          if (bfd_get_error () != bfd_error_system_call)
+            bfd_set_error (bfd_error_wrong_format);
+          return NULL;
+        }
+
+      loc = bfd_getb32 (ext_lst_header.dir_loc);
+      if (bfd_seek (abfd, loc, SEEK_SET) != 0)
+        {
+          if (bfd_get_error () != bfd_error_system_call)
+            bfd_set_error (bfd_error_wrong_format);
+          return NULL;
+        }
+
+      amt = sizeof (struct som_external_som_entry);
+      if (bfd_read (&ext_som_entry, amt, abfd) != amt)
+        {
+          if (bfd_get_error () != bfd_error_system_call)
+            bfd_set_error (bfd_error_wrong_format);
+          return NULL;
+        }
+
+      current_offset = bfd_getb32 (ext_som_entry.location);
+      if (bfd_seek (abfd, current_offset, SEEK_SET) != 0)
+        {
+          if (bfd_get_error () != bfd_error_system_call)
+            bfd_set_error (bfd_error_wrong_format);
+          return NULL;
+        }
+
+      amt = sizeof (struct som_external_header);
+      if (bfd_read (&ext_file_hdr, amt, abfd) != amt)
+        {
+          if (bfd_get_error () != bfd_error_system_call)
+            bfd_set_error (bfd_error_wrong_format);
+          return NULL;
+        }
+
+      som_swap_header_in (&ext_file_hdr, &file_hdr);
+      break;
+
+    default:
       bfd_set_error (bfd_error_wrong_format);
       return NULL;
     }
 
-  if (file_hdr.version_id != OLD_VERSION_ID
-      && file_hdr.version_id != NEW_VERSION_ID)
+  if (file_hdr.version_id != OLD_VERSION_ID && file_hdr.version_id != NEW_VERSION_ID)
     {
       bfd_set_error (bfd_error_wrong_format);
       return NULL;
@@ -2382,9 +2356,20 @@ som_object_p (bfd *abfd)
 
   if (file_hdr.aux_header_size != 0)
     {
-      aux_hdr_ptr = read_aux_header (abfd, file_hdr.aux_header_size);
+      struct som_external_exec_auxhdr ext_exec_auxhdr;
+
+      aux_hdr_ptr = bfd_zalloc (abfd, sizeof (*aux_hdr_ptr));
       if (aux_hdr_ptr == NULL)
         return NULL;
+        
+      amt = sizeof (struct som_external_exec_auxhdr);
+      if (bfd_read (&ext_exec_auxhdr, amt, abfd) != amt)
+        {
+          if (bfd_get_error () != bfd_error_system_call)
+            bfd_set_error (bfd_error_wrong_format);
+          return NULL;
+        }
+      som_swap_exec_auxhdr_in (&ext_exec_auxhdr, aux_hdr_ptr);
     }
 
   if (!setup_sections (abfd, &file_hdr, current_offset))
@@ -2396,116 +2381,16 @@ som_object_p (bfd *abfd)
   return som_object_setup (abfd, &file_hdr, aux_hdr_ptr, current_offset);
 }
 
-static bool
-is_valid_magic (unsigned int magic)
-{
-  switch (magic)
-    {
-    case RELOC_MAGIC:
-    case EXEC_MAGIC:
-    case SHARE_MAGIC:
-    case DEMAND_MAGIC:
-    case DL_MAGIC:
-    case SHL_MAGIC:
-#ifdef SHARED_MAGIC_CNX
-    case SHARED_MAGIC_CNX:
-#endif
-      return true;
-    default:
-      return false;
-    }
-}
-
-static bool
-read_execlibmagic_header (bfd *abfd, struct som_external_header *ext_file_hdr,
-                          struct som_header *file_hdr, unsigned long *current_offset)
-{
-  struct som_external_lst_header ext_lst_header;
-  struct som_external_som_entry ext_som_entry;
-  size_t amt;
-  unsigned int loc;
-
-  if (!seek_and_check (abfd, 0))
-    return false;
-
-  amt = sizeof (struct som_external_lst_header);
-  if (!read_and_check (abfd, &ext_lst_header, amt))
-    return false;
-
-  loc = bfd_getb32 (ext_lst_header.dir_loc);
-  if (!seek_and_check (abfd, loc))
-    return false;
-
-  amt = sizeof (struct som_external_som_entry);
-  if (!read_and_check (abfd, &ext_som_entry, amt))
-    return false;
-
-  *current_offset = bfd_getb32 (ext_som_entry.location);
-  if (!seek_and_check (abfd, *current_offset))
-    return false;
-
-  amt = sizeof (struct som_external_header);
-  if (!read_and_check (abfd, ext_file_hdr, amt))
-    return false;
-
-  som_swap_header_in (ext_file_hdr, file_hdr);
-  return true;
-}
-
-static bool
-seek_and_check (bfd *abfd, file_ptr position)
-{
-  if (bfd_seek (abfd, position, SEEK_SET) != 0)
-    {
-      if (bfd_get_error () != bfd_error_system_call)
-        bfd_set_error (bfd_error_wrong_format);
-      return false;
-    }
-  return true;
-}
-
-static bool
-read_and_check (bfd *abfd, void *buf, size_t size)
-{
-  if (bfd_read (buf, size, abfd) != size)
-    {
-      if (bfd_get_error () != bfd_error_system_call)
-        bfd_set_error (bfd_error_wrong_format);
-      return false;
-    }
-  return true;
-}
-
-static struct som_exec_auxhdr *
-read_aux_header (bfd *abfd, unsigned int aux_header_size)
-{
-  struct som_external_exec_auxhdr ext_exec_auxhdr;
-  struct som_exec_auxhdr *aux_hdr_ptr;
-  size_t amt;
-
-  aux_hdr_ptr = bfd_zalloc (abfd, (bfd_size_type) sizeof (*aux_hdr_ptr));
-  if (aux_hdr_ptr == NULL)
-    return NULL;
-
-  amt = sizeof (struct som_external_exec_auxhdr);
-  if (bfd_read (&ext_exec_auxhdr, amt, abfd) != amt)
-    {
-      if (bfd_get_error () != bfd_error_system_call)
-        bfd_set_error (bfd_error_wrong_format);
-      return NULL;
-    }
-
-  som_swap_exec_auxhdr_in (&ext_exec_auxhdr, aux_hdr_ptr);
-  return aux_hdr_ptr;
-}
-
 /* Create a SOM object.  */
 
 static bool
 som_mkobject (bfd *abfd)
 {
-  abfd->tdata.som_data = bfd_zalloc (abfd, (bfd_size_type) sizeof (struct som_data_struct));
-  return abfd->tdata.som_data != NULL;
+  if (abfd == NULL)
+    return false;
+
+  abfd->tdata.som_data = bfd_zalloc (abfd, sizeof (struct som_data_struct));
+  return (abfd->tdata.som_data != NULL);
 }
 
 /* Initialize some information in the file header.  This routine makes
@@ -2543,7 +2428,9 @@ som_prep_headers (bfd *abfd)
         file_hdr->a_magic = EXEC_MAGIC;
     }
   else
-    file_hdr->a_magic = RELOC_MAGIC;
+    {
+      file_hdr->a_magic = RELOC_MAGIC;
+    }
 
   file_hdr->file_time.secs = 0;
   file_hdr->file_time.nanosecs = 0;
@@ -2559,12 +2446,12 @@ som_prep_headers (bfd *abfd)
 
       if (som_is_space (section))
         {
-          if (!som_init_space_dict (abfd, section))
+          if (!som_setup_space_dict (abfd, section))
             return false;
         }
       else
         {
-          if (!som_init_subspace_dict (abfd, section))
+          if (!som_setup_subspace_dict (abfd, section))
             return false;
         }
     }
@@ -2572,59 +2459,57 @@ som_prep_headers (bfd *abfd)
 }
 
 static bool
-som_init_space_dict (bfd *abfd, asection *section)
+som_setup_space_dict (bfd *abfd, asection *section)
 {
   size_t amt = sizeof (struct som_space_dictionary_record);
-  struct som_space_dictionary_record *space_dict;
-  struct som_copyable_section_data_struct *copy_data;
-
-  space_dict = bfd_zalloc (abfd, amt);
-  if (space_dict == NULL)
+  som_section_data (section)->space_dict = bfd_zalloc (abfd, amt);
+  if (som_section_data (section)->space_dict == NULL)
     return false;
 
-  som_section_data (section)->space_dict = space_dict;
-  copy_data = som_section_data (section)->copy_data;
-
-  space_dict->loader_fix_index = -1;
-  space_dict->init_pointer_index = -1;
-  space_dict->sort_key = copy_data->sort_key;
-  space_dict->is_defined = copy_data->is_defined;
-  space_dict->is_private = copy_data->is_private;
-  space_dict->space_number = copy_data->space_number;
+  som_section_data (section)->space_dict->loader_fix_index = -1;
+  som_section_data (section)->space_dict->init_pointer_index = -1;
+  som_section_data (section)->space_dict->sort_key =
+    som_section_data (section)->copy_data->sort_key;
+  som_section_data (section)->space_dict->is_defined =
+    som_section_data (section)->copy_data->is_defined;
+  som_section_data (section)->space_dict->is_private =
+    som_section_data (section)->copy_data->is_private;
+  som_section_data (section)->space_dict->space_number =
+    som_section_data (section)->copy_data->space_number;
 
   return true;
 }
 
 static bool
-som_init_subspace_dict (bfd *abfd, asection *section)
+som_setup_subspace_dict (bfd *abfd, asection *section)
 {
   size_t amt = sizeof (struct som_subspace_dictionary_record);
-  struct som_subspace_dictionary_record *subspace_dict;
-  struct som_copyable_section_data_struct *copy_data;
-
-  subspace_dict = bfd_zalloc (abfd, amt);
-  if (subspace_dict == NULL)
+  som_section_data (section)->subspace_dict = bfd_zalloc (abfd, amt);
+  if (som_section_data (section)->subspace_dict == NULL)
     return false;
 
-  som_section_data (section)->subspace_dict = subspace_dict;
-  copy_data = som_section_data (section)->copy_data;
-
   if (section->flags & SEC_ALLOC)
-    subspace_dict->is_loadable = 1;
+    som_section_data (section)->subspace_dict->is_loadable = 1;
 
   if (section->flags & SEC_CODE)
-    subspace_dict->code_only = 1;
+    som_section_data (section)->subspace_dict->code_only = 1;
 
-  subspace_dict->subspace_start = section->vma;
-  subspace_dict->subspace_length = section->size;
-  subspace_dict->initialization_length = section->size;
-  subspace_dict->alignment = 1 << section->alignment_power;
-  subspace_dict->sort_key = copy_data->sort_key;
-  subspace_dict->access_control_bits = copy_data->access_control_bits;
-  subspace_dict->quadrant = copy_data->quadrant;
-  subspace_dict->is_comdat = copy_data->is_comdat;
-  subspace_dict->is_common = copy_data->is_common;
-  subspace_dict->dup_common = copy_data->dup_common;
+  som_section_data (section)->subspace_dict->subspace_start = section->vma;
+  som_section_data (section)->subspace_dict->subspace_length = section->size;
+  som_section_data (section)->subspace_dict->initialization_length = section->size;
+  som_section_data (section)->subspace_dict->alignment = 1 << section->alignment_power;
+  som_section_data (section)->subspace_dict->sort_key =
+    som_section_data (section)->copy_data->sort_key;
+  som_section_data (section)->subspace_dict->access_control_bits =
+    som_section_data (section)->copy_data->access_control_bits;
+  som_section_data (section)->subspace_dict->quadrant =
+    som_section_data (section)->copy_data->quadrant;
+  som_section_data (section)->subspace_dict->is_comdat =
+    som_section_data (section)->copy_data->is_comdat;
+  som_section_data (section)->subspace_dict->is_common =
+    som_section_data (section)->copy_data->is_common;
+  som_section_data (section)->subspace_dict->dup_common =
+    som_section_data (section)->copy_data->dup_common;
 
   return true;
 }
@@ -2634,23 +2519,18 @@ som_init_subspace_dict (bfd *abfd, asection *section)
 static bool
 som_is_space (asection *section)
 {
-  struct som_section_data_struct *som_data;
-  struct som_copyable_section_data_struct *copy_data;
+  som_section_data_struct *section_data;
   asection *container;
 
-  if (section == NULL)
+  if (!section)
     return false;
 
-  som_data = som_section_data (section);
-  if (som_data == NULL)
+  section_data = som_section_data (section);
+  if (!section_data || !section_data->copy_data)
     return false;
 
-  copy_data = som_data->copy_data;
-  if (copy_data == NULL)
-    return false;
-
-  container = copy_data->container;
-  if (container == NULL)
+  container = section_data->copy_data->container;
+  if (!container)
     return false;
 
   if (container == section)
@@ -2667,22 +2547,17 @@ som_is_space (asection *section)
 static bool
 som_is_subspace (asection *section)
 {
-  struct som_section_data_struct *section_data;
-  struct som_copyable_section_data_struct *copy_data;
+  som_section_data_type *section_data;
   asection *container;
-
+  
   if (section == NULL)
     return false;
-
-  section_data = som_section_data (section);
-  if (section_data == NULL)
+    
+  section_data = som_section_data(section);
+  if (section_data == NULL || section_data->copy_data == NULL)
     return false;
 
-  copy_data = section_data->copy_data;
-  if (copy_data == NULL)
-    return false;
-
-  container = copy_data->container;
+  container = section_data->copy_data->container;
   if (container == NULL)
     return false;
 
@@ -2702,30 +2577,21 @@ som_is_subspace (asection *section)
 static bool
 som_is_container (asection *space, asection *subspace)
 {
-  struct som_copyable_section_data_struct *copy_data;
-  asection *container;
-
-  if (space == NULL || subspace == NULL)
+  if (!space || !subspace)
     return false;
-
-  if (som_section_data (subspace) == NULL)
+    
+  som_section_data_type *subspace_data = som_section_data (subspace);
+  if (!subspace_data || !subspace_data->copy_data)
     return false;
-
-  copy_data = som_section_data (subspace)->copy_data;
-  if (copy_data == NULL)
+    
+  asection *container = subspace_data->copy_data->container;
+  if (!container)
     return false;
-
-  container = copy_data->container;
-  if (container == NULL)
-    return false;
-
+    
   if (container == space)
     return true;
-
-  if (container->output_section == NULL)
-    return false;
-
-  return container->output_section == space;
+    
+  return (container->output_section == space);
 }
 
 /* Count and return the number of spaces attached to the given BFD.  */
@@ -2740,10 +2606,7 @@ som_count_spaces (bfd *abfd)
     return 0;
 
   for (section = abfd->sections; section != NULL; section = section->next)
-    {
-      if (som_is_space (section))
-        count++;
-    }
+    count += som_is_space (section);
 
   return count;
 }
@@ -2777,21 +2640,23 @@ som_count_subspaces (bfd *abfd)
 static int
 compare_syms (const void *arg1, const void *arg2)
 {
-  const asymbol *sym1 = *(const asymbol *const *) arg1;
-  const asymbol *sym2 = *(const asymbol *const *) arg2;
+  asymbol **sym1 = (asymbol **) arg1;
+  asymbol **sym2 = (asymbol **) arg2;
   
-  unsigned int count1 = (sym1->flags & BSF_SECTION_SYM) 
-                        ? sym1->udata.i 
-                        : som_symbol_data (sym1)->reloc_count;
+  if (!sym1 || !sym2 || !*sym1 || !*sym2) {
+    return 0;
+  }
   
-  unsigned int count2 = (sym2->flags & BSF_SECTION_SYM)
-                        ? sym2->udata.i
-                        : som_symbol_data (sym2)->reloc_count;
-
-  if (count1 < count2)
-    return 1;
-  if (count1 > count2)
-    return -1;
+  unsigned int count1 = ((*sym1)->flags & BSF_SECTION_SYM) ? 
+                        (*sym1)->udata.i : 
+                        som_symbol_data(*sym1)->reloc_count;
+  
+  unsigned int count2 = ((*sym2)->flags & BSF_SECTION_SYM) ? 
+                        (*sym2)->udata.i : 
+                        som_symbol_data(*sym2)->reloc_count;
+  
+  if (count1 > count2) return -1;
+  if (count1 < count2) return 1;
   return 0;
 }
 
@@ -2801,8 +2666,8 @@ compare_syms (const void *arg1, const void *arg2)
 static int
 compare_subspaces (const void *arg1, const void *arg2)
 {
-  const asection *const *subspace1 = arg1;
-  const asection *const *subspace2 = arg2;
+  const asection *const *subspace1 = (const asection *const *) arg1;
+  const asection *const *subspace2 = (const asection *const *) arg2;
 
   if ((*subspace1)->target_index < (*subspace2)->target_index)
     return -1;
@@ -2838,12 +2703,12 @@ som_prep_for_fixups (bfd *abfd, asymbol **syms, unsigned long num_syms)
 
   for (section = abfd->sections; section != NULL; section = section->next)
     {
-      int j;
+      unsigned int j;
 
-      if ((int) section->reloc_count <= 0)
+      if (section->reloc_count == 0)
 	continue;
 
-      for (j = 1; j < (int) section->reloc_count; j++)
+      for (j = 1; j < section->reloc_count; j++)
 	{
 	  arelent *reloc = section->orelocation[j];
 	  int scale;
@@ -2860,8 +2725,7 @@ som_prep_for_fixups (bfd *abfd, asymbol **syms, unsigned long num_syms)
 
 	  if ((*reloc->sym_ptr_ptr)->flags & BSF_SECTION_SYM)
 	    {
-	      (*reloc->sym_ptr_ptr)->udata.i =
-		(*reloc->sym_ptr_ptr)->udata.i + scale;
+	      (*reloc->sym_ptr_ptr)->udata.i += scale;
 	      continue;
 	    }
 
@@ -2896,24 +2760,40 @@ som_write_fixups (bfd *abfd,
 		  unsigned long current_offset,
 		  unsigned int *total_reloc_sizep)
 {
+  unsigned int i, j;
   unsigned char tmp_space[SOM_TMP_BUFSIZE];
+  unsigned char *p;
   unsigned int total_reloc_size = 0;
+  unsigned int subspace_reloc_size = 0;
   unsigned int num_spaces = obj_som_file_hdr (abfd)->space_total;
   asection *section = abfd->sections;
+  size_t amt;
+
+  if (!total_reloc_sizep)
+    return false;
 
   memset (tmp_space, 0, SOM_TMP_BUFSIZE);
+  p = tmp_space;
 
-  for (unsigned int i = 0; i < num_spaces; i++)
+  for (i = 0; i < num_spaces; i++)
     {
+      asection *subsection;
+
       while (section && !som_is_space (section))
 	section = section->next;
       if (!section)
 	break;
 
-      for (asection *subsection = abfd->sections;
+      for (subsection = abfd->sections;
 	   subsection != NULL;
 	   subsection = subsection->next)
 	{
+	  unsigned int reloc_offset;
+	  unsigned int current_rounding_mode;
+#ifndef NO_PCREL_MODES
+	  unsigned int current_call_mode;
+#endif
+
 	  if (!som_is_subspace (subsection)
 	      || !som_is_container (section, subsection))
 	    continue;
@@ -2929,18 +2809,20 @@ som_write_fixups (bfd *abfd,
 	  if (bfd_seek (abfd, current_offset + total_reloc_size, SEEK_SET) != 0)
 	    return false;
 
-	  unsigned char *p = tmp_space;
-	  unsigned int subspace_reloc_size = 0;
-	  unsigned int reloc_offset = 0;
+	  p = tmp_space;
+	  subspace_reloc_size = 0;
+	  reloc_offset = 0;
 	  som_initialize_reloc_queue (reloc_queue);
-	  unsigned int current_rounding_mode = R_N_MODE;
+	  current_rounding_mode = R_N_MODE;
 #ifndef NO_PCREL_MODES
-	  unsigned int current_call_mode = R_SHORT_PCREL_MODE;
+	  current_call_mode = R_SHORT_PCREL_MODE;
 #endif
 
-	  for (unsigned int j = 0; j < subsection->reloc_count; j++)
+	  for (j = 0; j < subsection->reloc_count; j++)
 	    {
 	      arelent *bfd_reloc = subsection->orelocation[j];
+	      unsigned int skip;
+	      int sym_num;
 
 	      if (bfd_reloc->address < reloc_offset)
 		{
@@ -2965,21 +2847,25 @@ som_write_fixups (bfd *abfd,
 		  return false;
 		}
 
-	      int sym_num = ((*bfd_reloc->sym_ptr_ptr)->flags & BSF_SECTION_SYM)
-		? (*bfd_reloc->sym_ptr_ptr)->udata.i
-		: som_symbol_data (*bfd_reloc->sym_ptr_ptr)->index;
+	      if ((*bfd_reloc->sym_ptr_ptr)->flags & BSF_SECTION_SYM)
+		sym_num = (*bfd_reloc->sym_ptr_ptr)->udata.i;
+	      else
+		sym_num = som_symbol_data (*bfd_reloc->sym_ptr_ptr)->index;
 
 	      if (p - tmp_space + 512 > SOM_TMP_BUFSIZE)
 		{
-		  size_t amt = p - tmp_space;
+		  amt = p - tmp_space;
 		  if (bfd_write (tmp_space, amt, abfd) != amt)
 		    return false;
+
 		  p = tmp_space;
 		  som_initialize_reloc_queue (reloc_queue);
 		}
 
-	      unsigned int skip = bfd_reloc->address - reloc_offset;
-	      p = som_reloc_skip (abfd, skip, p, &subspace_reloc_size, reloc_queue);
+	      skip = bfd_reloc->address - reloc_offset;
+	      p = som_reloc_skip (abfd, skip, p,
+				  &subspace_reloc_size, reloc_queue);
+
 	      reloc_offset = bfd_reloc->address + bfd_reloc->howto->size;
 
 	      switch (bfd_reloc->howto->type)
@@ -2995,6 +2881,7 @@ som_write_fixups (bfd *abfd,
 		  if (bfd_reloc->addend)
 		    p = som_reloc_addend (abfd, bfd_reloc->addend, p,
 					  &subspace_reloc_size, reloc_queue);
+
 		  if (sym_num < 0x20)
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type + sym_num, p);
@@ -3005,74 +2892,87 @@ som_write_fixups (bfd *abfd,
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type + 32, p);
 		      bfd_put_8 (abfd, sym_num, p + 1);
-		      p = try_prev_fixup (abfd, &subspace_reloc_size, p, 2, reloc_queue);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size, p,
+					  2, reloc_queue);
 		    }
 		  else if (sym_num < 0x10000000)
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type + 33, p);
 		      bfd_put_8 (abfd, sym_num >> 16, p + 1);
 		      bfd_put_16 (abfd, (bfd_vma) sym_num, p + 2);
-		      p = try_prev_fixup (abfd, &subspace_reloc_size, p, 4, reloc_queue);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size,
+					  p, 4, reloc_queue);
 		    }
 		  else
-		    abort ();
+		    return false;
 		  break;
 
 		case R_DATA_GPREL:
 		  if (bfd_reloc->addend)
 		    p = som_reloc_addend (abfd, bfd_reloc->addend, p,
 					  &subspace_reloc_size, reloc_queue);
+
 		  if (sym_num < 0x10000000)
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type, p);
 		      bfd_put_8 (abfd, sym_num >> 16, p + 1);
 		      bfd_put_16 (abfd, (bfd_vma) sym_num, p + 2);
-		      p = try_prev_fixup (abfd, &subspace_reloc_size, p, 4, reloc_queue);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size,
+					  p, 4, reloc_queue);
 		    }
 		  else
-		    abort ();
+		    return false;
 		  break;
 
 		case R_DATA_ONE_SYMBOL:
 		case R_DATA_PLABEL:
 		case R_CODE_PLABEL:
 		case R_DLT_REL:
-		  if (bfd_reloc->howto->type != R_DATA_ONE_SYMBOL && bfd_reloc->addend)
+		  if (bfd_reloc->howto->type != R_DATA_ONE_SYMBOL
+		      && bfd_reloc->addend)
 		    p = som_reloc_addend (abfd, bfd_reloc->addend, p,
 					  &subspace_reloc_size, reloc_queue);
+
 		  if (sym_num < 0x100)
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type, p);
 		      bfd_put_8 (abfd, sym_num, p + 1);
-		      p = try_prev_fixup (abfd, &subspace_reloc_size, p, 2, reloc_queue);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size, p,
+					  2, reloc_queue);
 		    }
 		  else if (sym_num < 0x10000000)
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type + 1, p);
 		      bfd_put_8 (abfd, sym_num >> 16, p + 1);
 		      bfd_put_16 (abfd, (bfd_vma) sym_num, p + 2);
-		      p = try_prev_fixup (abfd, &subspace_reloc_size, p, 4, reloc_queue);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size,
+					  p, 4, reloc_queue);
 		    }
 		  else
-		    abort ();
+		    return false;
 		  break;
 
 		case R_ENTRY:
 		  {
+		    unsigned int tmp;
 		    arelent *tmp_reloc = NULL;
 		    bfd_put_8 (abfd, R_ENTRY, p);
+
 		    bfd_put_32 (abfd, bfd_reloc->addend, p + 1);
-		    unsigned int tmp;
+
 		    for (tmp = j; tmp < subsection->reloc_count; tmp++)
 		      {
 			tmp_reloc = subsection->orelocation[tmp];
 			if (tmp_reloc->howto->type == R_EXIT)
 			  break;
 		      }
+
 		    if (tmp == subsection->reloc_count)
-		      abort ();
+		      return false;
+
 		    bfd_put_32 (abfd, tmp_reloc->addend, p + 5);
-		    p = try_prev_fixup (abfd, &subspace_reloc_size, p, 9, reloc_queue);
+		    p = try_prev_fixup (abfd, &subspace_reloc_size,
+					p, 9, reloc_queue);
 		    break;
 		  }
 
@@ -3124,21 +3024,24 @@ som_write_fixups (bfd *abfd,
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type + 1, p);
 		      bfd_put_8 (abfd, bfd_reloc->addend / 4, p + 1);
-		      p = try_prev_fixup (abfd, &subspace_reloc_size, p, 2, reloc_queue);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size,
+					  p, 2, reloc_queue);
 		    }
 		  else
 		    {
 		      bfd_put_8 (abfd, bfd_reloc->howto->type + 2, p);
 		      bfd_put_8 (abfd, (bfd_reloc->addend / 4) >> 16, p + 1);
 		      bfd_put_16 (abfd, bfd_reloc->addend / 4, p + 2);
-		      p = try_prev_fixup (abfd, &subspace_reloc_size, p, 4, reloc_queue);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size,
+					  p, 4, reloc_queue);
 		    }
 		  break;
 
 		case R_COMP1:
 		  bfd_put_8 (abfd, bfd_reloc->howto->type, p);
 		  bfd_put_8 (abfd, 0x44, p + 1);
-		  p = try_prev_fixup (abfd, &subspace_reloc_size, p, 2, reloc_queue);
+		  p = try_prev_fixup (abfd, &subspace_reloc_size,
+				      p, 2, reloc_queue);
 		  break;
 
 		case R_COMP2:
@@ -3146,7 +3049,8 @@ som_write_fixups (bfd *abfd,
 		  bfd_put_8 (abfd, 0x80, p + 1);
 		  bfd_put_8 (abfd, sym_num >> 16, p + 2);
 		  bfd_put_16 (abfd, (bfd_vma) sym_num, p + 3);
-		  p = try_prev_fixup (abfd, &subspace_reloc_size, p, 5, reloc_queue);
+		  p = try_prev_fixup (abfd, &subspace_reloc_size,
+				      p, 5, reloc_queue);
 		  break;
 
 		case R_CODE_EXPR:
@@ -3167,9 +3071,10 @@ som_write_fixups (bfd *abfd,
 	  p = som_reloc_skip (abfd, subsection->size - reloc_offset,
 			      p, &subspace_reloc_size, reloc_queue);
 
-	  size_t amt = p - tmp_space;
+	  amt = p - tmp_space;
 	  if (bfd_write (tmp_space, amt, abfd) != amt)
 	    return false;
+	  p = tmp_space;
 
 	  total_reloc_size += subspace_reloc_size;
 	  som_section_data (subsection)->subspace_dict->fixup_request_quantity = subspace_reloc_size;
@@ -3190,14 +3095,14 @@ static char *
 add_string (char *p, const char *str, bfd *abfd, char **buf, size_t *buflen,
 	    unsigned int *strings_size, unsigned int *strx)
 {
-  if (!p || !str || !abfd || !buf || !*buf || !buflen || !strings_size || !strx)
+  if (!str || !buf || !*buf || !buflen || !strings_size || !strx)
     return NULL;
 
-  size_t length = strlen (str) + 1;
-  size_t aligned_length = (length + 3) & ~3;
-  size_t needed = 4 + aligned_length;
+  size_t str_length = strlen (str);
+  size_t length = str_length + 1;
+  size_t needed = (4 + length + 3) & ~3;
 
-  if ((size_t)(p - *buf) + needed > *buflen)
+  if (p - *buf + needed > *buflen)
     {
       size_t amt = p - *buf;
       if (bfd_write (*buf, amt, abfd) != amt)
@@ -3205,101 +3110,99 @@ add_string (char *p, const char *str, bfd *abfd, char **buf, size_t *buflen,
 
       if (needed > *buflen)
 	{
-	  size_t new_size = *buflen * 2;
-	  if (new_size < needed)
-	    new_size = needed;
-	  
-	  char *new_buf = bfd_malloc (new_size);
-	  if (!new_buf)
+	  size_t new_buflen = (*buflen * 2 < needed) ? needed : *buflen * 2;
+	  char *new_buf = bfd_malloc (new_buflen);
+	  if (new_buf == NULL)
 	    return NULL;
 	  
 	  free (*buf);
 	  *buf = new_buf;
-	  *buflen = new_size;
+	  *buflen = new_buflen;
 	}
 
       p = *buf;
     }
 
-  bfd_put_32 (abfd, length - 1, p);
+  bfd_put_32 (abfd, str_length, p);
+  *strings_size += 4;
   p += 4;
-  
-  *strx = *strings_size + 4;
-  
+
+  *strx = *strings_size;
+
   memcpy (p, str, length);
   p += length;
-  
-  size_t padding = aligned_length - length;
+  *strings_size += length;
+
+  size_t padding = (4 - (length & 3)) & 3;
   if (padding > 0)
     {
       memset (p, 0, padding);
+      *strings_size += padding;
       p += padding;
     }
-  
-  *strings_size += needed;
-  
+
   return p;
 }
 
 /* Write out the space/subspace string table.  */
 
 static bool
-som_write_space_strings (bfd *abfd,
-			 unsigned long current_offset,
-			 unsigned int *strings_size)
+som_write_space_strings(bfd *abfd,
+                        unsigned long current_offset,
+                        unsigned int *strings_size)
 {
-  size_t tmp_space_size = SOM_TMP_BUFSIZE;
-  char *tmp_space = bfd_malloc (tmp_space_size);
-  char *p;
-  asection *section;
-  bool result = false;
+    size_t tmp_space_size = SOM_TMP_BUFSIZE;
+    char *tmp_space = bfd_malloc(tmp_space_size);
+    char *p;
+    asection *section;
+    size_t amt;
+    bool result = false;
 
-  if (tmp_space == NULL)
-    return false;
+    if (tmp_space == NULL)
+        return false;
 
-  p = tmp_space;
+    p = tmp_space;
 
-  if (bfd_seek (abfd, current_offset, SEEK_SET) != 0)
+    if (bfd_seek(abfd, current_offset, SEEK_SET) != 0)
+        goto cleanup;
+
+    *strings_size = 0;
+    for (section = abfd->sections; section != NULL; section = section->next)
     {
-      free (tmp_space);
-      return false;
+        unsigned int *strx;
+
+        if (som_is_space(section))
+        {
+            strx = &som_section_data(section)->space_dict->name;
+        }
+        else if (som_is_subspace(section))
+        {
+            strx = &som_section_data(section)->subspace_dict->name;
+        }
+        else
+        {
+            continue;
+        }
+
+        p = add_string(p, section->name, abfd, &tmp_space, &tmp_space_size,
+                       strings_size, strx);
+        if (p == NULL)
+            goto cleanup;
     }
 
-  *strings_size = 0;
-  for (section = abfd->sections; section != NULL; section = section->next)
+    amt = p - tmp_space;
+    if (amt == 0)
     {
-      unsigned int *strx = NULL;
-
-      if (som_is_space (section))
-	strx = &som_section_data (section)->space_dict->name;
-      else if (som_is_subspace (section))
-	strx = &som_section_data (section)->subspace_dict->name;
-
-      if (strx != NULL)
-	{
-	  p = add_string (p, section->name, abfd, &tmp_space, &tmp_space_size,
-			  strings_size, strx);
-	  if (p == NULL)
-	    {
-	      free (tmp_space);
-	      return false;
-	    }
-	}
+        result = true;
+    }
+    else
+    {
+        result = (bfd_write(tmp_space, amt, abfd) == amt);
     }
 
-  size_t amt = p - tmp_space;
-  if (amt > 0)
-    {
-      if (bfd_write (tmp_space, amt, abfd) != amt)
-	{
-	  free (tmp_space);
-	  return false;
-	}
-    }
-
-  result = true;
-  free (tmp_space);
-  return result;
+cleanup:
+    free(tmp_space);
+    return result;
 }
 
 /* Write out the symbol string table.  */
@@ -3315,7 +3218,6 @@ som_write_symbol_strings (bfd *abfd,
   size_t tmp_space_size = SOM_TMP_BUFSIZE;
   char *tmp_space = bfd_malloc (tmp_space_size);
   char *p = tmp_space;
-  bool result = false;
 
   if (tmp_space == NULL)
     return false;
@@ -3330,7 +3232,7 @@ som_write_symbol_strings (bfd *abfd,
   
   if (compilation_unit)
     {
-      struct som_name_pt *names[4] = {
+      struct som_name_pt *names[] = {
         &compilation_unit->name,
         &compilation_unit->language_name,
         &compilation_unit->product_id,
@@ -3338,15 +3240,16 @@ som_write_symbol_strings (bfd *abfd,
       };
 
       for (unsigned int i = 0; i < 4; i++)
-        {
-          p = add_string (p, names[i]->name, abfd, &tmp_space, 
-                         &tmp_space_size, strings_size, &names[i]->strx);
-          if (p == NULL)
-            {
-              free (tmp_space);
-              return false;
-            }
-        }
+	{
+	  p = add_string (p, names[i]->name, abfd, &tmp_space, &tmp_space_size,
+			  strings_size, &names[i]->strx);
+
+	  if (p == NULL)
+	    {
+	      free (tmp_space);
+	      return false;
+	    }
+	}
     }
 
   for (unsigned int i = 0; i < num_syms; i++)
@@ -3355,20 +3258,16 @@ som_write_symbol_strings (bfd *abfd,
 		      strings_size,
 		      &som_symbol_data (syms[i])->stringtab_offset);
       if (p == NULL)
-        {
-          free (tmp_space);
-          return false;
-        }
+	{
+	  free (tmp_space);
+	  return false;
+	}
     }
 
   size_t amt = p - tmp_space;
-  if (amt > 0)
-    result = (bfd_write (tmp_space, amt, abfd) == amt);
-  else
-    result = true;
-
+  bool ok = amt ? bfd_write (tmp_space, amt, abfd) == amt : true;
   free (tmp_space);
-  return result;
+  return ok;
 }
 
 /* Compute variable information to be placed in the SOM headers,
@@ -3393,18 +3292,55 @@ som_begin_writing (bfd *abfd)
   if (abfd->flags & (EXEC_P | DYNAMIC))
     {
       current_offset += sizeof (struct som_external_exec_auxhdr);
-      obj_som_file_hdr (abfd)->aux_header_size
-	+= sizeof (struct som_external_exec_auxhdr);
+      obj_som_file_hdr (abfd)->aux_header_size += sizeof (struct som_external_exec_auxhdr);
       exec_header = obj_som_exec_hdr (abfd);
       exec_header->som_auxhdr.type = EXEC_AUX_ID;
       exec_header->som_auxhdr.length = 40;
     }
-  
-  if (!som_write_aux_header(abfd, &current_offset, obj_som_version_hdr (abfd)))
-    return false;
     
-  if (!som_write_aux_header(abfd, &current_offset, obj_som_copyright_hdr (abfd)))
-    return false;
+  if (obj_som_version_hdr (abfd) != NULL)
+    {
+      struct som_external_string_auxhdr ext_string_auxhdr;
+      bfd_size_type len;
+
+      if (bfd_seek (abfd, current_offset, SEEK_SET) != 0)
+        return false;
+
+      len = sizeof (struct som_external_string_auxhdr);
+      obj_som_file_hdr (abfd)->aux_header_size += len;
+      current_offset += len;
+      som_swap_string_auxhdr_out (obj_som_version_hdr (abfd), &ext_string_auxhdr);
+      if (bfd_write (&ext_string_auxhdr, len, abfd) != len)
+        return false;
+
+      len = obj_som_version_hdr (abfd)->header_id.length - 4;
+      obj_som_file_hdr (abfd)->aux_header_size += len;
+      current_offset += len;
+      if (bfd_write (obj_som_version_hdr (abfd)->string, len, abfd) != len)
+        return false;
+    }
+
+  if (obj_som_copyright_hdr (abfd) != NULL)
+    {
+      struct som_external_string_auxhdr ext_string_auxhdr;
+      bfd_size_type len;
+
+      if (bfd_seek (abfd, current_offset, SEEK_SET) != 0)
+        return false;
+
+      len = sizeof (struct som_external_string_auxhdr);
+      obj_som_file_hdr (abfd)->aux_header_size += len;
+      current_offset += len;
+      som_swap_string_auxhdr_out (obj_som_copyright_hdr (abfd), &ext_string_auxhdr);
+      if (bfd_write (&ext_string_auxhdr, len, abfd) != len)
+        return false;
+
+      len = obj_som_copyright_hdr (abfd)->header_id.length - 4;
+      obj_som_file_hdr (abfd)->aux_header_size += len;
+      current_offset += len;
+      if (bfd_write (obj_som_copyright_hdr (abfd)->string, len, abfd) != len)
+        return false;
+    }
 
   obj_som_file_hdr (abfd)->init_array_location = current_offset;
   obj_som_file_hdr (abfd)->init_array_total = 0;
@@ -3412,21 +3348,19 @@ som_begin_writing (bfd *abfd)
   num_spaces = som_count_spaces (abfd);
   obj_som_file_hdr (abfd)->space_location = current_offset;
   obj_som_file_hdr (abfd)->space_total = num_spaces;
-  current_offset +=
-    num_spaces * sizeof (struct som_external_space_dictionary_record);
+  current_offset += num_spaces * sizeof (struct som_external_space_dictionary_record);
 
   num_subspaces = som_count_subspaces (abfd);
   obj_som_file_hdr (abfd)->subspace_location = current_offset;
   obj_som_file_hdr (abfd)->subspace_total = num_subspaces;
-  current_offset
-    += num_subspaces * sizeof (struct som_external_subspace_dictionary_record);
+  current_offset += num_subspaces * sizeof (struct som_external_subspace_dictionary_record);
 
   if (current_offset % 4)
     current_offset += (4 - (current_offset % 4));
 
   obj_som_file_hdr (abfd)->space_strings_location = current_offset;
 
-  if (! som_write_space_strings (abfd, current_offset, &strings_size))
+  if (!som_write_space_strings (abfd, current_offset, &strings_size))
     return false;
 
   obj_som_file_hdr (abfd)->space_strings_size = strings_size;
@@ -3440,124 +3374,48 @@ som_begin_writing (bfd *abfd)
       current_offset += sizeof (struct som_external_compilation_unit);
     }
 
-  if (!som_layout_loadable_subspaces(abfd, &current_offset, num_spaces, exec_header, &total_subspaces))
-    return false;
-
-  if (abfd->flags & (EXEC_P | DYNAMIC))
-    current_offset = SOM_ALIGN (current_offset, PA_PAGESIZE);
-
-  obj_som_file_hdr (abfd)->unloadable_sp_location = current_offset;
-  
-  if (!som_layout_unloadable_subspaces(abfd, &current_offset, num_spaces, &total_subspaces))
-    return false;
-
-  if (abfd->flags & (EXEC_P | DYNAMIC))
-    current_offset = SOM_ALIGN (current_offset, PA_PAGESIZE);
-  if (bfd_seek (abfd, current_offset - 1, SEEK_SET) != 0)
-    return false;
-  if (bfd_write ("", 1, abfd) != 1)
-    return false;
-
-  obj_som_file_hdr (abfd)->unloadable_sp_size
-    = current_offset - obj_som_file_hdr (abfd)->unloadable_sp_location;
-
-  obj_som_file_hdr (abfd)->loader_fixup_location = 0;
-  obj_som_file_hdr (abfd)->loader_fixup_total = 0;
-
-  obj_som_file_hdr (abfd)->som_length = current_offset;
-
-  return true;
-}
-
-static bool
-som_write_aux_header(bfd *abfd, unsigned long *current_offset, void *hdr)
-{
-  struct som_external_string_auxhdr ext_string_auxhdr;
-  bfd_size_type len;
-  
-  if (hdr == NULL)
-    return true;
-    
-  if (bfd_seek (abfd, *current_offset, SEEK_SET) != 0)
-    return false;
-
-  len = sizeof (struct som_external_string_auxhdr);
-  obj_som_file_hdr (abfd)->aux_header_size += len;
-  *current_offset += len;
-  
-  if (hdr == obj_som_version_hdr (abfd))
-    {
-      som_swap_string_auxhdr_out(obj_som_version_hdr (abfd), &ext_string_auxhdr);
-      if (bfd_write (&ext_string_auxhdr, len, abfd) != len)
-        return false;
-      len = obj_som_version_hdr (abfd)->header_id.length - 4;
-      obj_som_file_hdr (abfd)->aux_header_size += len;
-      *current_offset += len;
-      if (bfd_write (obj_som_version_hdr (abfd)->string, len, abfd) != len)
-        return false;
-    }
-  else if (hdr == obj_som_copyright_hdr (abfd))
-    {
-      som_swap_string_auxhdr_out(obj_som_copyright_hdr (abfd), &ext_string_auxhdr);
-      if (bfd_write (&ext_string_auxhdr, len, abfd) != len)
-        return false;
-      len = obj_som_copyright_hdr (abfd)->header_id.length - 4;
-      obj_som_file_hdr (abfd)->aux_header_size += len;
-      *current_offset += len;
-      if (bfd_write (obj_som_copyright_hdr (abfd)->string, len, abfd) != len)
-        return false;
-    }
-    
-  return true;
-}
-
-static bool
-som_layout_loadable_subspaces(bfd *abfd, unsigned long *current_offset, 
-                              unsigned long num_spaces, struct som_exec_auxhdr *exec_header,
-                              unsigned int *total_subspaces)
-{
-  asection *section = abfd->sections;
-  unsigned long i;
-  
+  section = abfd->sections;
   for (i = 0; i < num_spaces; i++)
     {
       asection *subsection;
-      int first_subspace = 1;
+      int first_subspace;
       unsigned int subspace_offset = 0;
 
       while (!som_is_space (section))
         section = section->next;
 
+      first_subspace = 1;
       for (subsection = abfd->sections; subsection != NULL; subsection = subsection->next)
         {
-          if (!som_is_subspace (subsection)
-              || !som_is_container (section, subsection)
-              || (subsection->flags & SEC_ALLOC) == 0)
+          if (!som_is_subspace (subsection) || 
+              !som_is_container (section, subsection) ||
+              (subsection->flags & SEC_ALLOC) == 0)
             continue;
 
           if (first_subspace && (abfd->flags & (EXEC_P | DYNAMIC)))
             {
-              if (abfd->flags & (D_PAGED | DYNAMIC)
-                  || (subsection->flags & SEC_CODE)
-                  || ((abfd->flags & WP_TEXT) && (subsection->flags & SEC_DATA)))
-                *current_offset = SOM_ALIGN (*current_offset, PA_PAGESIZE);
+              if (abfd->flags & (D_PAGED | DYNAMIC) ||
+                  (subsection->flags & SEC_CODE) ||
+                  ((abfd->flags & WP_TEXT) && (subsection->flags & SEC_DATA)))
+                current_offset = SOM_ALIGN (current_offset, PA_PAGESIZE);
 
               if (subsection->flags & SEC_CODE && exec_header->exec_tfile == 0)
                 {
                   exec_header->exec_tmem = section->vma;
-                  exec_header->exec_tfile = *current_offset;
+                  exec_header->exec_tfile = current_offset;
                 }
               if (subsection->flags & SEC_DATA && exec_header->exec_dfile == 0)
                 {
                   exec_header->exec_dmem = section->vma;
-                  exec_header->exec_dfile = *current_offset;
+                  exec_header->exec_dfile = current_offset;
                 }
+
               subspace_offset = subsection->vma;
               first_subspace = 0;
             }
           else if (abfd->flags & (EXEC_P | DYNAMIC))
             {
-              *current_offset += subsection->vma - subspace_offset;
+              current_offset += subsection->vma - subspace_offset;
               if (subsection->flags & SEC_CODE)
                 exec_header->exec_tsize += subsection->vma - subspace_offset;
               else
@@ -3565,39 +3423,35 @@ som_layout_loadable_subspaces(bfd *abfd, unsigned long *current_offset,
               subspace_offset += subsection->vma - subspace_offset;
             }
 
-          subsection->target_index = (*total_subspaces)++;
-          
+          subsection->target_index = total_subspaces++;
           if (subsection->flags & SEC_LOAD)
             {
               if (abfd->flags & (EXEC_P | DYNAMIC) && subsection->flags & SEC_CODE)
                 exec_header->exec_tsize += subsection->size;
               else if (abfd->flags & (EXEC_P | DYNAMIC) && subsection->flags & SEC_DATA)
                 exec_header->exec_dsize += subsection->size;
-              som_section_data (subsection)->subspace_dict->file_loc_init_value = *current_offset;
-              subsection->filepos = *current_offset;
-              *current_offset += subsection->size;
+              som_section_data (subsection)->subspace_dict->file_loc_init_value = current_offset;
+              subsection->filepos = current_offset;
+              current_offset += subsection->size;
               subspace_offset += subsection->size;
             }
           else
             {
               if (abfd->flags & (EXEC_P | DYNAMIC))
                 exec_header->exec_bsize += subsection->size;
+
               som_section_data (subsection)->subspace_dict->file_loc_init_value = 0;
               som_section_data (subsection)->subspace_dict->initialization_length = 0;
             }
         }
       section = section->next;
     }
-  return true;
-}
 
-static bool
-som_layout_unloadable_subspaces(bfd *abfd, unsigned long *current_offset, 
-                                unsigned long num_spaces, unsigned int *total_subspaces)
-{
-  asection *section = abfd->sections;
-  unsigned long i;
-  
+  if (abfd->flags & (EXEC_P | DYNAMIC))
+    current_offset = SOM_ALIGN (current_offset, PA_PAGESIZE);
+
+  obj_som_file_hdr (abfd)->unloadable_sp_location = current_offset;
+  section = abfd->sections;
   for (i = 0; i < num_spaces; i++)
     {
       asection *subsection;
@@ -3606,22 +3460,21 @@ som_layout_unloadable_subspaces(bfd *abfd, unsigned long *current_offset,
         section = section->next;
 
       if (abfd->flags & (EXEC_P | DYNAMIC))
-        *current_offset = SOM_ALIGN (*current_offset, PA_PAGESIZE);
+        current_offset = SOM_ALIGN (current_offset, PA_PAGESIZE);
 
       for (subsection = abfd->sections; subsection != NULL; subsection = subsection->next)
         {
-          if (!som_is_subspace (subsection)
-              || !som_is_container (section, subsection)
-              || (subsection->flags & SEC_ALLOC) != 0)
+          if (!som_is_subspace (subsection) ||
+              !som_is_container (section, subsection) ||
+              (subsection->flags & SEC_ALLOC) != 0)
             continue;
 
-          subsection->target_index = (*total_subspaces)++;
-          
+          subsection->target_index = total_subspaces++;
           if ((subsection->flags & SEC_LOAD) == 0)
             {
-              som_section_data (subsection)->subspace_dict->file_loc_init_value = *current_offset;
-              subsection->filepos = *current_offset;
-              *current_offset += subsection->size;
+              som_section_data (subsection)->subspace_dict->file_loc_init_value = current_offset;
+              subsection->filepos = current_offset;
+              current_offset += subsection->size;
             }
           else
             {
@@ -3631,6 +3484,21 @@ som_layout_unloadable_subspaces(bfd *abfd, unsigned long *current_offset,
         }
       section = section->next;
     }
+
+  if (abfd->flags & (EXEC_P | DYNAMIC))
+    current_offset = SOM_ALIGN (current_offset, PA_PAGESIZE);
+  if (bfd_seek (abfd, current_offset - 1, SEEK_SET) != 0)
+    return false;
+  if (bfd_write ("", 1, abfd) != 1)
+    return false;
+
+  obj_som_file_hdr (abfd)->unloadable_sp_size = current_offset - obj_som_file_hdr (abfd)->unloadable_sp_location;
+
+  obj_som_file_hdr (abfd)->loader_fixup_location = 0;
+  obj_som_file_hdr (abfd)->loader_fixup_total = 0;
+
+  obj_som_file_hdr (abfd)->som_length = current_offset;
+
   return true;
 }
 
@@ -3641,11 +3509,13 @@ som_finish_writing (bfd *abfd)
 {
   int num_spaces = som_count_spaces (abfd);
   asymbol **syms = bfd_get_outsymbols (abfd);
-  int num_syms = bfd_get_symcount (abfd);
+  int i, num_syms;
   int subspace_index = 0;
+  file_ptr location;
+  asection *section;
   unsigned long current_offset;
-  unsigned int strings_size = 0;
-  unsigned int total_reloc_size = 0;
+  unsigned int strings_size, total_reloc_size;
+  size_t amt;
   struct som_external_header ext_header;
 
   if (obj_som_exec_data (abfd) && obj_som_exec_data (abfd)->version_id)
@@ -3654,8 +3524,10 @@ som_finish_writing (bfd *abfd)
     obj_som_file_hdr (abfd)->version_id = NEW_VERSION_ID;
 
   current_offset = obj_som_file_hdr (abfd)->som_length;
+
   current_offset = (current_offset + 3) & ~3;
 
+  num_syms = bfd_get_symcount (abfd);
   obj_som_file_hdr (abfd)->symbol_location = current_offset;
   obj_som_file_hdr (abfd)->symbol_total = num_syms;
   current_offset += num_syms * sizeof (struct som_external_symbol_dictionary_record);
@@ -3663,15 +3535,14 @@ som_finish_writing (bfd *abfd)
   current_offset = (current_offset + 3) & ~3;
   obj_som_file_hdr (abfd)->symbol_strings_location = current_offset;
 
-  if (!som_write_symbol_strings (abfd, current_offset, syms,
-                                 num_syms, &strings_size,
-                                 obj_som_compilation_unit (abfd)))
+  if (!som_write_symbol_strings (abfd, current_offset, syms, num_syms, 
+                                 &strings_size, obj_som_compilation_unit (abfd)))
     return false;
 
   obj_som_file_hdr (abfd)->symbol_strings_size = strings_size;
   current_offset += strings_size;
 
-  if (!som_prep_for_fixups (abfd, syms, num_syms))
+  if (!som_prep_for_fixups (abfd, bfd_get_outsymbols (abfd), bfd_get_symcount (abfd)))
     return false;
 
   current_offset = (current_offset + 3) & ~3;
@@ -3686,86 +3557,108 @@ som_finish_writing (bfd *abfd)
   if (!som_build_and_write_symbol_table (abfd))
     return false;
 
-  if (bfd_seek (abfd, obj_som_file_hdr (abfd)->subspace_location, SEEK_SET) != 0)
+  location = obj_som_file_hdr (abfd)->subspace_location;
+  if (bfd_seek (abfd, location, SEEK_SET) != 0)
     return false;
 
-  for (int loadable = 1; loadable >= 0; loadable--)
-    {
-      asection *section = abfd->sections;
-      for (int i = 0; i < num_spaces; i++)
-        {
-          while (section && !som_is_space (section))
-            section = section->next;
-          
-          if (!section)
-            return false;
+  section = abfd->sections;
+  for (i = 0; i < num_spaces; i++) {
+    asection *subsection;
 
-          for (asection *subsection = abfd->sections; subsection; subsection = subsection->next)
-            {
-              if (!som_is_subspace (subsection) || !som_is_container (section, subsection))
-                continue;
-              
-              bool has_alloc = (subsection->flags & SEC_ALLOC) != 0;
-              if (has_alloc != loadable)
-                continue;
-
-              if (som_section_data (section)->space_dict->subspace_quantity == 0)
-                {
-                  som_section_data (section)->space_dict->is_loadable = loadable;
-                  som_section_data (section)->space_dict->subspace_index = subspace_index;
-                }
-
-              som_section_data (section)->space_dict->subspace_quantity++;
-              som_section_data (subsection)->subspace_dict->space_index = i;
-              subspace_index++;
-
-              struct som_external_subspace_dictionary_record ext_subspace_dict;
-              som_swap_subspace_dictionary_record_out (som_section_data (subsection)->subspace_dict, 
-                                                       &ext_subspace_dict);
-              
-              size_t amt = sizeof (struct som_subspace_dictionary_record);
-              if (bfd_write (&ext_subspace_dict, amt, abfd) != amt)
-                return false;
-            }
-          
-          section = section->next;
-        }
-    }
-
-  if (bfd_seek (abfd, obj_som_file_hdr (abfd)->space_location, SEEK_SET) != 0)
-    return false;
-
-  asection *section = abfd->sections;
-  for (int i = 0; i < num_spaces; i++)
-    {
-      while (section && !som_is_space (section))
-        section = section->next;
-      
-      if (!section)
-        return false;
-
-      struct som_external_space_dictionary_record ext_space_dict;
-      som_swap_space_dictionary_out (som_section_data (section)->space_dict, &ext_space_dict);
-      
-      size_t amt = sizeof (struct som_external_space_dictionary_record);
-      if (bfd_write (&ext_space_dict, amt, abfd) != amt)
-        return false;
-
+    while (!som_is_space (section))
       section = section->next;
-    }
 
-  if (obj_som_compilation_unit (abfd))
-    {
-      if (bfd_seek (abfd, obj_som_file_hdr (abfd)->compiler_location, SEEK_SET) != 0)
+    for (subsection = abfd->sections; subsection != NULL; subsection = subsection->next) {
+      struct som_external_subspace_dictionary_record ext_subspace_dict;
+
+      if (!som_is_subspace (subsection) || 
+          !som_is_container (section, subsection) || 
+          (subsection->flags & SEC_ALLOC) == 0)
+        continue;
+
+      if (som_section_data (section)->space_dict->subspace_quantity == 0) {
+        som_section_data (section)->space_dict->is_loadable = 1;
+        som_section_data (section)->space_dict->subspace_index = subspace_index;
+      }
+
+      subspace_index++;
+      som_section_data (section)->space_dict->subspace_quantity++;
+      som_section_data (subsection)->subspace_dict->space_index = i;
+
+      som_swap_subspace_dictionary_record_out
+        (som_section_data (subsection)->subspace_dict, &ext_subspace_dict);
+      amt = sizeof (struct som_subspace_dictionary_record);
+      if (bfd_write (&ext_subspace_dict, amt, abfd) != amt)
         return false;
+    }
+    section = section->next;
+  }
 
-      struct som_external_compilation_unit ext_comp_unit;
-      som_swap_compilation_unit_out (obj_som_compilation_unit (abfd), &ext_comp_unit);
+  section = abfd->sections;
+  for (i = 0; i < num_spaces; i++) {
+    asection *subsection;
 
-      size_t amt = sizeof (struct som_external_compilation_unit);
-      if (bfd_write (&ext_comp_unit, amt, abfd) != amt)
+    while (!som_is_space (section))
+      section = section->next;
+
+    for (subsection = abfd->sections; subsection != NULL; subsection = subsection->next) {
+      struct som_external_subspace_dictionary_record ext_subspace_dict;
+
+      if (!som_is_subspace (subsection) || 
+          !som_is_container (section, subsection) || 
+          (subsection->flags & SEC_ALLOC) != 0)
+        continue;
+
+      if (som_section_data (section)->space_dict->subspace_quantity == 0) {
+        som_section_data (section)->space_dict->is_loadable = 0;
+        som_section_data (section)->space_dict->subspace_index = subspace_index;
+      }
+
+      som_section_data (section)->space_dict->subspace_quantity++;
+      subspace_index++;
+      som_section_data (subsection)->subspace_dict->space_index = i;
+
+      som_swap_subspace_dictionary_record_out
+        (som_section_data (subsection)->subspace_dict, &ext_subspace_dict);
+      amt = sizeof (struct som_subspace_dictionary_record);
+      if (bfd_write (&ext_subspace_dict, amt, abfd) != amt)
         return false;
     }
+    section = section->next;
+  }
+
+  location = obj_som_file_hdr (abfd)->space_location;
+  if (bfd_seek (abfd, location, SEEK_SET) != 0)
+    return false;
+
+  section = abfd->sections;
+  for (i = 0; i < num_spaces; i++) {
+    struct som_external_space_dictionary_record ext_space_dict;
+
+    while (!som_is_space (section))
+      section = section->next;
+
+    som_swap_space_dictionary_out (som_section_data (section)->space_dict, &ext_space_dict);
+    amt = sizeof (struct som_external_space_dictionary_record);
+    if (bfd_write (&ext_space_dict, amt, abfd) != amt)
+      return false;
+
+    section = section->next;
+  }
+
+  if (obj_som_compilation_unit (abfd)) {
+    struct som_external_compilation_unit ext_comp_unit;
+
+    location = obj_som_file_hdr (abfd)->compiler_location;
+    if (bfd_seek (abfd, location, SEEK_SET) != 0)
+      return false;
+
+    som_swap_compilation_unit_out (obj_som_compilation_unit (abfd), &ext_comp_unit);
+
+    amt = sizeof (struct som_external_compilation_unit);
+    if (bfd_write (&ext_comp_unit, amt, abfd) != amt)
+      return false;
+  }
 
   if ((abfd->flags & (EXEC_P | DYNAMIC)) && obj_som_exec_data (abfd))
     obj_som_file_hdr (abfd)->system_id = obj_som_exec_data (abfd)->system_id;
@@ -3781,50 +3674,43 @@ som_finish_writing (bfd *abfd)
 
   if (bfd_seek (abfd, 0, SEEK_SET) != 0)
     return false;
-  
-  size_t amt = sizeof (struct som_external_header);
+  amt = sizeof (struct som_external_header);
   if (bfd_write (&ext_header, amt, abfd) != amt)
     return false;
 
-  if (abfd->flags & (EXEC_P | DYNAMIC))
-    {
-      struct som_exec_auxhdr *exec_header = obj_som_exec_hdr (abfd);
-      
-      if (!exec_header)
-        return false;
-      
-      exec_header->exec_entry = bfd_get_start_address (abfd);
-      
-      if (obj_som_exec_data (abfd))
-        exec_header->exec_flags = obj_som_exec_data (abfd)->exec_flags;
+  if (abfd->flags & (EXEC_P | DYNAMIC)) {
+    long tmp, som_length;
+    struct som_exec_auxhdr *exec_header;
+    struct som_external_exec_auxhdr ext_exec_header;
 
-      long tmp = SOM_ALIGN (exec_header->exec_dsize, PA_PAGESIZE);
-      exec_header->exec_bsize -= (tmp - exec_header->exec_dsize);
-      
-      if (exec_header->exec_bsize < 0)
-        exec_header->exec_bsize = 0;
-      
-      exec_header->exec_dsize = tmp;
+    exec_header = obj_som_exec_hdr (abfd);
+    exec_header->exec_entry = bfd_get_start_address (abfd);
+    if (obj_som_exec_data (abfd))
+      exec_header->exec_flags = obj_som_exec_data (abfd)->exec_flags;
 
-      long som_length = obj_som_file_hdr (abfd)->som_length;
-      if (exec_header->exec_tfile + exec_header->exec_tsize > som_length ||
-          exec_header->exec_dfile + exec_header->exec_dsize > som_length)
-        {
-          bfd_set_error (bfd_error_bad_value);
-          return false;
-        }
+    tmp = exec_header->exec_dsize;
+    tmp = SOM_ALIGN (tmp, PA_PAGESIZE);
+    exec_header->exec_bsize -= (tmp - exec_header->exec_dsize);
+    if (exec_header->exec_bsize < 0)
+      exec_header->exec_bsize = 0;
+    exec_header->exec_dsize = tmp;
 
-      struct som_external_exec_auxhdr ext_exec_header;
-      som_swap_exec_auxhdr_out (exec_header, &ext_exec_header);
-
-      if (bfd_seek (abfd, obj_som_file_hdr (abfd)->aux_header_location, SEEK_SET) != 0)
-        return false;
-
-      amt = sizeof (ext_exec_header);
-      if (bfd_write (&ext_exec_header, amt, abfd) != amt)
-        return false;
+    som_length = obj_som_file_hdr (abfd)->som_length;
+    if (exec_header->exec_tfile + exec_header->exec_tsize > som_length ||
+        exec_header->exec_dfile + exec_header->exec_dsize > som_length) {
+      bfd_set_error (bfd_error_bad_value);
+      return false;
     }
-  
+
+    som_swap_exec_auxhdr_out (exec_header, &ext_exec_header);
+
+    if (bfd_seek (abfd, obj_som_file_hdr (abfd)->aux_header_location, SEEK_SET) != 0)
+      return false;
+
+    amt = sizeof (ext_exec_header);
+    if (bfd_write (&ext_exec_header, amt, abfd) != amt)
+      return false;
+  }
   return true;
 }
 
@@ -3833,15 +3719,19 @@ som_finish_writing (bfd *abfd)
 static uint32_t
 som_compute_checksum (struct som_external_header *hdr)
 {
-  if (hdr == NULL) {
+  size_t count, i;
+  uint32_t checksum;
+  uint32_t *buffer;
+
+  if (!hdr) {
     return 0;
   }
 
-  const size_t count = sizeof (*hdr) / sizeof (uint32_t);
-  const uint32_t *buffer = (const uint32_t *) hdr;
-  uint32_t checksum = 0;
-
-  for (size_t i = 0; i < count; i++) {
+  buffer = (uint32_t *) hdr;
+  checksum = 0;
+  count = sizeof (*hdr) / sizeof (uint32_t);
+  
+  for (i = 0; i < count; i++) {
     checksum ^= buffer[i];
   }
 
@@ -3855,65 +3745,89 @@ som_bfd_derive_misc_symbol_info (bfd *abfd ATTRIBUTE_UNUSED,
 {
   memset (info, 0, sizeof (struct som_misc_symbol_info));
 
-  if ((sym->flags & BSF_SECTION_SYM) != 0)
+  if (sym->flags & BSF_SECTION_SYM)
     {
       info->symbol_type = ST_DATA;
-      return;
-    }
-
-  if (bfd_is_com_section (sym->section))
-    {
-      info->symbol_type = ST_STORAGE;
-      info->symbol_scope = SS_UNSAT;
     }
   else
     {
-      derive_symbol_type(sym, info);
+      som_bfd_set_symbol_type(sym, info);
     }
 
-  derive_symbol_scope(sym, info);
-  derive_symbol_info(sym, info);
+  som_bfd_set_symbol_scope(sym, info);
+  som_bfd_set_symbol_info(sym, info);
   
   info->symbol_value = sym->value + sym->section->vma;
   info->secondary_def = (sym->flags & BSF_WEAK) != 0;
   
-  derive_comdat_flags(sym, info);
+  som_bfd_set_comdat_flags(sym, info);
 }
 
 static void
-derive_symbol_type(asymbol *sym, struct som_misc_symbol_info *info)
+som_bfd_set_symbol_type(asymbol *sym, struct som_misc_symbol_info *info)
 {
-  unsigned int som_type = som_symbol_data(sym)->som_type;
-  unsigned int flags = sym->flags;
+  if (bfd_is_com_section (sym->section))
+    {
+      info->symbol_type = ST_STORAGE;
+      info->symbol_scope = SS_UNSAT;
+      return;
+    }
+
+  int som_type = som_symbol_data (sym)->som_type;
   
-  if ((som_type == SYMBOL_TYPE_UNKNOWN || som_type == SYMBOL_TYPE_CODE) &&
-      bfd_is_und_section(sym->section) && (flags & BSF_FUNCTION) != 0)
+  if (som_bfd_is_undefined_function(sym, som_type))
     {
       info->symbol_type = ST_CODE;
       return;
     }
-  
-  if (som_type == SYMBOL_TYPE_ENTRY ||
-      (som_type == SYMBOL_TYPE_CODE && (flags & BSF_FUNCTION) != 0) ||
-      (som_type == SYMBOL_TYPE_UNKNOWN && (flags & BSF_FUNCTION) != 0))
+
+  if (som_bfd_is_entry_function(sym, som_type))
     {
       info->symbol_type = ST_ENTRY;
-      info->arg_reloc = som_symbol_data(sym)->tc_data.ap.hppa_arg_reloc;
-      info->priv_level = som_symbol_data(sym)->tc_data.ap.hppa_priv_level;
+      info->arg_reloc = som_symbol_data (sym)->tc_data.ap.hppa_arg_reloc;
+      info->priv_level = som_symbol_data (sym)->tc_data.ap.hppa_priv_level;
       return;
     }
-  
+
   if (som_type == SYMBOL_TYPE_UNKNOWN)
     {
-      if (bfd_is_abs_section(sym->section))
-        info->symbol_type = ST_ABSOLUTE;
-      else if ((sym->section->flags & SEC_CODE) != 0)
-        info->symbol_type = ST_CODE;
-      else
-        info->symbol_type = ST_DATA;
+      som_bfd_set_unknown_symbol_type(sym, info);
       return;
     }
-  
+
+  som_bfd_set_known_symbol_type(som_type, info);
+}
+
+static bool
+som_bfd_is_undefined_function(asymbol *sym, int som_type)
+{
+  return ((som_type == SYMBOL_TYPE_UNKNOWN || som_type == SYMBOL_TYPE_CODE)
+	  && bfd_is_und_section (sym->section)
+	  && (sym->flags & BSF_FUNCTION));
+}
+
+static bool
+som_bfd_is_entry_function(asymbol *sym, int som_type)
+{
+  return (som_type == SYMBOL_TYPE_ENTRY
+	  || (som_type == SYMBOL_TYPE_CODE && (sym->flags & BSF_FUNCTION))
+	  || (som_type == SYMBOL_TYPE_UNKNOWN && (sym->flags & BSF_FUNCTION)));
+}
+
+static void
+som_bfd_set_unknown_symbol_type(asymbol *sym, struct som_misc_symbol_info *info)
+{
+  if (bfd_is_abs_section (sym->section))
+    info->symbol_type = ST_ABSOLUTE;
+  else if (sym->section->flags & SEC_CODE)
+    info->symbol_type = ST_CODE;
+  else
+    info->symbol_type = ST_DATA;
+}
+
+static void
+som_bfd_set_known_symbol_type(int som_type, struct som_misc_symbol_info *info)
+{
   switch (som_type)
     {
     case SYMBOL_TYPE_ABSOLUTE:
@@ -3941,54 +3855,44 @@ derive_symbol_type(asymbol *sym, struct som_misc_symbol_info *info)
 }
 
 static void
-derive_symbol_scope(asymbol *sym, struct som_misc_symbol_info *info)
+som_bfd_set_symbol_scope(asymbol *sym, struct som_misc_symbol_info *info)
 {
-  if (bfd_is_com_section(sym->section))
+  if (bfd_is_com_section (sym->section))
     return;
-    
-  if (bfd_is_und_section(sym->section))
+  
+  if (bfd_is_und_section (sym->section))
     info->symbol_scope = SS_UNSAT;
-  else if ((sym->flags & (BSF_EXPORT | BSF_WEAK)) != 0)
+  else if (sym->flags & (BSF_EXPORT | BSF_WEAK))
     info->symbol_scope = SS_UNIVERSAL;
   else
     info->symbol_scope = SS_LOCAL;
 }
 
 static void
-derive_symbol_info(asymbol *sym, struct som_misc_symbol_info *info)
+som_bfd_set_symbol_info(asymbol *sym, struct som_misc_symbol_info *info)
 {
-  if (bfd_is_com_section(sym->section) ||
-      bfd_is_und_section(sym->section) ||
-      bfd_is_abs_section(sym->section))
-    {
-      info->symbol_info = 0;
-    }
+  if (bfd_is_com_section (sym->section)
+      || bfd_is_und_section (sym->section)
+      || bfd_is_abs_section (sym->section))
+    info->symbol_info = 0;
   else
-    {
-      info->symbol_info = sym->section->target_index;
-    }
+    info->symbol_info = sym->section->target_index;
 }
 
 static void
-derive_comdat_flags(asymbol *sym, struct som_misc_symbol_info *info)
+som_bfd_set_comdat_flags(asymbol *sym, struct som_misc_symbol_info *info)
 {
-  if (som_section_data(sym->section) == NULL)
+  if (!som_section_data (sym->section)
+      || !som_section_data (sym->section)->subspace_dict
+      || info->symbol_scope != SS_UNIVERSAL
+      || (info->symbol_type != ST_ENTRY
+	  && info->symbol_type != ST_CODE
+	  && info->symbol_type != ST_DATA))
     return;
-    
-  if (som_section_data(sym->section)->subspace_dict == NULL)
-    return;
-    
-  if (info->symbol_scope != SS_UNIVERSAL)
-    return;
-    
-  if (info->symbol_type != ST_ENTRY &&
-      info->symbol_type != ST_CODE &&
-      info->symbol_type != ST_DATA)
-    return;
-    
-  info->is_comdat = som_section_data(sym->section)->subspace_dict->is_comdat;
-  info->is_common = som_section_data(sym->section)->subspace_dict->is_common;
-  info->dup_common = som_section_data(sym->section)->subspace_dict->dup_common;
+
+  info->is_comdat = som_section_data (sym->section)->subspace_dict->is_comdat;
+  info->is_common = som_section_data (sym->section)->subspace_dict->is_common;
+  info->dup_common = som_section_data (sym->section)->subspace_dict->dup_common;
 }
 
 /* Build and write, in one big chunk, the entire symbol table for
@@ -4001,47 +3905,49 @@ som_build_and_write_symbol_table (bfd *abfd)
   file_ptr symtab_location = obj_som_file_hdr (abfd)->symbol_location;
   asymbol **bfd_syms = obj_som_sorted_syms (abfd);
   struct som_external_symbol_dictionary_record *som_symtab = NULL;
+  unsigned int i;
   bfd_size_type symtab_size;
   size_t amt;
 
   if (_bfd_mul_overflow (num_syms,
-			 sizeof (struct som_external_symbol_dictionary_record),
-			 &amt))
+                         sizeof (struct som_external_symbol_dictionary_record),
+                         &amt))
     {
       bfd_set_error (bfd_error_no_memory);
       return false;
     }
 
-  if (num_syms == 0)
-    return true;
-
   som_symtab = bfd_zmalloc (amt);
-  if (som_symtab == NULL)
-    return false;
+  if (som_symtab == NULL && num_syms != 0)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
 
-  for (unsigned int i = 0; i < num_syms; i++)
+  for (i = 0; i < num_syms; i++)
     {
       struct som_misc_symbol_info info;
+      unsigned int flags;
 
       bfd_putb32 (som_symbol_data (bfd_syms[i])->stringtab_offset,
-		  som_symtab[i].name);
+                  som_symtab[i].name);
 
       som_bfd_derive_misc_symbol_info (abfd, bfd_syms[i], &info);
 
-      unsigned int flags = (info.symbol_type << SOM_SYMBOL_TYPE_SH)
-	| (info.symbol_scope << SOM_SYMBOL_SCOPE_SH)
-	| (info.arg_reloc << SOM_SYMBOL_ARG_RELOC_SH)
-	| (3 << SOM_SYMBOL_XLEAST_SH)
-	| (info.secondary_def ? SOM_SYMBOL_SECONDARY_DEF : 0)
-	| (info.is_common ? SOM_SYMBOL_IS_COMMON : 0)
-	| (info.dup_common ? SOM_SYMBOL_DUP_COMMON : 0);
+      flags = (info.symbol_type << SOM_SYMBOL_TYPE_SH)
+        | (info.symbol_scope << SOM_SYMBOL_SCOPE_SH)
+        | (info.arg_reloc << SOM_SYMBOL_ARG_RELOC_SH)
+        | (3 << SOM_SYMBOL_XLEAST_SH)
+        | (info.secondary_def ? SOM_SYMBOL_SECONDARY_DEF : 0)
+        | (info.is_common ? SOM_SYMBOL_IS_COMMON : 0)
+        | (info.dup_common ? SOM_SYMBOL_DUP_COMMON : 0);
       bfd_putb32 (flags, som_symtab[i].flags);
 
       flags = (info.symbol_info << SOM_SYMBOL_SYMBOL_INFO_SH)
-	| (info.is_comdat ? SOM_SYMBOL_IS_COMDAT : 0);
+        | (info.is_comdat ? SOM_SYMBOL_IS_COMDAT : 0);
       bfd_putb32 (flags, som_symtab[i].info);
       bfd_putb32 (info.symbol_value | info.priv_level,
-		  som_symtab[i].symbol_value);
+                  som_symtab[i].symbol_value);
     }
 
   if (bfd_seek (abfd, symtab_location, SEEK_SET) != 0)
@@ -4068,23 +3974,13 @@ static bool
 som_write_object_contents (bfd *abfd)
 {
   if (abfd == NULL)
-    {
-      return false;
-    }
+    return false;
 
   if (!abfd->output_has_begun)
     {
-      if (!som_prep_headers (abfd))
-        {
-          return false;
-        }
-      
+      som_prep_headers (abfd);
       abfd->output_has_begun = true;
-      
-      if (!som_begin_writing (abfd))
-        {
-          return false;
-        }
+      som_begin_writing (abfd);
     }
 
   return som_finish_writing (abfd);
@@ -4097,6 +3993,9 @@ som_slurp_string_table (bfd *abfd)
 {
   char *stringtab;
   bfd_size_type amt;
+
+  if (abfd == NULL)
+    return false;
 
   if (obj_som_stringtab (abfd) != NULL)
     return true;
@@ -4115,7 +4014,7 @@ som_slurp_string_table (bfd *abfd)
   if (stringtab == NULL)
     return false;
 
-  stringtab[amt] = 0;
+  stringtab[amt] = '\0';
   obj_som_stringtab (abfd) = stringtab;
   return true;
 }
@@ -4132,11 +4031,8 @@ som_get_symtab_upper_bound (bfd *abfd)
   if (!som_slurp_symbol_table (abfd))
     return -1;
 
-  long symcount = bfd_get_symcount (abfd);
-  if (symcount < 0)
-    return -1;
-
-  if (symcount > (LONG_MAX / sizeof (asymbol *)) - 1)
+  unsigned long symcount = bfd_get_symcount (abfd);
+  if (symcount > (LONG_MAX - sizeof (asymbol *)) / sizeof (asymbol *))
     return -1;
 
   return (symcount + 1) * sizeof (asymbol *);
@@ -4145,59 +4041,49 @@ som_get_symtab_upper_bound (bfd *abfd)
 /* Convert from a SOM subspace index to a BFD section.  */
 
 asection *
-bfd_section_from_som_symbol(bfd *abfd, struct som_external_symbol_dictionary_record *symbol)
+bfd_section_from_som_symbol
+  (bfd *abfd, struct som_external_symbol_dictionary_record *symbol)
 {
-  if (!abfd || !symbol) {
+  asection *section;
+  unsigned int flags;
+  unsigned int symbol_type;
+  int idx;
+  unsigned int value;
+
+  if (abfd == NULL || symbol == NULL)
     return bfd_abs_section_ptr;
-  }
 
-  unsigned int flags = bfd_getb32(symbol->flags);
-  unsigned int symbol_type = (flags >> SOM_SYMBOL_TYPE_SH) & SOM_SYMBOL_TYPE_MASK;
-  
-  if (should_use_quick_mapping(abfd, symbol_type)) {
-    return find_section_by_index(abfd, symbol);
-  }
-  
-  return find_section_by_address(abfd, symbol);
-}
+  flags = bfd_getb32(symbol->flags);
+  symbol_type = (flags >> SOM_SYMBOL_TYPE_SH) & SOM_SYMBOL_TYPE_MASK;
 
-static bool should_use_quick_mapping(bfd *abfd, unsigned int symbol_type)
-{
-  if ((abfd->flags & (EXEC_P | DYNAMIC)) == 0) {
-    return true;
-  }
-  
-  return symbol_type != ST_ENTRY && 
-         symbol_type != ST_PRI_PROG && 
-         symbol_type != ST_SEC_PROG && 
-         symbol_type != ST_MILLICODE;
-}
+  if ((abfd->flags & (EXEC_P | DYNAMIC)) == 0 ||
+      (symbol_type != ST_ENTRY &&
+       symbol_type != ST_PRI_PROG &&
+       symbol_type != ST_SEC_PROG &&
+       symbol_type != ST_MILLICODE))
+    {
+      idx = (bfd_getb32(symbol->info) >> SOM_SYMBOL_SYMBOL_INFO_SH) &
+            SOM_SYMBOL_SYMBOL_INFO_MASK;
 
-static asection *find_section_by_index(bfd *abfd, struct som_external_symbol_dictionary_record *symbol)
-{
-  int idx = (bfd_getb32(symbol->info) >> SOM_SYMBOL_SYMBOL_INFO_SH) & SOM_SYMBOL_SYMBOL_INFO_MASK;
-  
-  for (asection *section = abfd->sections; section != NULL; section = section->next) {
-    if (section->target_index == idx && som_is_subspace(section)) {
-      return section;
+      for (section = abfd->sections; section != NULL; section = section->next)
+        {
+          if (section->target_index == idx && som_is_subspace(section))
+            return section;
+        }
     }
-  }
-  
-  return bfd_abs_section_ptr;
-}
+  else
+    {
+      value = bfd_getb32(symbol->symbol_value);
 
-static asection *find_section_by_address(bfd *abfd, struct som_external_symbol_dictionary_record *symbol)
-{
-  unsigned int value = bfd_getb32(symbol->symbol_value);
-  
-  for (asection *section = abfd->sections; section != NULL; section = section->next) {
-    if (som_is_subspace(section) && 
-        value >= section->vma && 
-        value <= section->vma + section->size) {
-      return section;
+      for (section = abfd->sections; section != NULL; section = section->next)
+        {
+          if (value >= section->vma &&
+              value <= section->vma + section->size &&
+              som_is_subspace(section))
+            return section;
+        }
     }
-  }
-  
+
   return bfd_abs_section_ptr;
 }
 
@@ -4214,70 +4100,49 @@ som_slurp_symbol_table (bfd *abfd)
   size_t amt;
 
   if (obj_som_symtab (abfd) != NULL)
-    {
-      return true;
-    }
+    goto successful_return;
 
   if (symbol_count == 0)
-    {
-      return true;
-    }
+    goto successful_return;
 
   if (!som_slurp_string_table (abfd))
-    {
-      return false;
-    }
+    goto error_return;
 
   stringtab = obj_som_stringtab (abfd);
 
   if (_bfd_mul_overflow (symbol_count, symsize, &amt))
     {
       bfd_set_error (bfd_error_file_too_big);
-      return false;
+      goto error_return;
     }
-
   if (bfd_seek (abfd, obj_som_sym_filepos (abfd), SEEK_SET) != 0)
-    {
-      return false;
-    }
-
+    goto error_return;
   buf = (struct som_external_symbol_dictionary_record *)
     _bfd_malloc_and_read (abfd, amt, amt);
   if (buf == NULL)
-    {
-      return false;
-    }
+    goto error_return;
 
   if (_bfd_mul_overflow (symbol_count, sizeof (som_symbol_type), &amt))
     {
       bfd_set_error (bfd_error_file_too_big);
-      free (buf);
-      return false;
+      goto error_return;
     }
-
   symbase = bfd_zmalloc (amt);
   if (symbase == NULL)
-    {
-      free (buf);
-      return false;
-    }
+    goto error_return;
 
   endbufp = buf + symbol_count;
-  sym = symbase;
-  
-  for (bufp = buf; bufp < endbufp; ++bufp)
+  for (bufp = buf, sym = symbase; bufp < endbufp; ++bufp)
     {
       unsigned int flags = bfd_getb32 (bufp->flags);
       unsigned int symbol_type =
-        (flags >> SOM_SYMBOL_TYPE_SH) & SOM_SYMBOL_TYPE_MASK;
+	(flags >> SOM_SYMBOL_TYPE_SH) & SOM_SYMBOL_TYPE_MASK;
       unsigned int symbol_scope =
-        (flags >> SOM_SYMBOL_SCOPE_SH) & SOM_SYMBOL_SCOPE_MASK;
+	(flags >> SOM_SYMBOL_SCOPE_SH) & SOM_SYMBOL_SCOPE_MASK;
       bfd_vma offset;
 
       if (symbol_type == ST_SYM_EXT || symbol_type == ST_ARG_EXT)
-        {
-          continue;
-        }
+	continue;
 
       switch (symbol_type)
         {
@@ -4314,119 +4179,109 @@ som_slurp_symbol_table (bfd *abfd)
         }
 
       som_symbol_data (sym)->tc_data.ap.hppa_arg_reloc =
-        (flags >> SOM_SYMBOL_ARG_RELOC_SH) & SOM_SYMBOL_ARG_RELOC_MASK;
+	(flags >> SOM_SYMBOL_ARG_RELOC_SH) & SOM_SYMBOL_ARG_RELOC_MASK;
 
       sym->symbol.the_bfd = abfd;
       offset = bfd_getb32 (bufp->name);
-      if (offset >= obj_som_stringtab_size (abfd))
-        {
-          bfd_set_error (bfd_error_bad_value);
-          free (symbase);
-          free (buf);
-          return false;
-        }
-      sym->symbol.name = offset + stringtab;
+      if (offset < obj_som_stringtab_size (abfd))
+	sym->symbol.name = offset + stringtab;
+      else
+	{
+	  bfd_set_error (bfd_error_bad_value);
+	  goto error_return;
+	}
       sym->symbol.value = bfd_getb32 (bufp->symbol_value);
       sym->symbol.section = NULL;
       sym->symbol.flags = 0;
 
       switch (symbol_type)
-        {
-        case ST_ENTRY:
-        case ST_MILLICODE:
-          sym->symbol.flags |= BSF_FUNCTION;
-          som_symbol_data (sym)->tc_data.ap.hppa_priv_level =
-            sym->symbol.value & 0x3;
-          sym->symbol.value &= ~0x3;
-          break;
+	{
+	case ST_ENTRY:
+	case ST_MILLICODE:
+	  sym->symbol.flags |= BSF_FUNCTION;
+	  som_symbol_data (sym)->tc_data.ap.hppa_priv_level =
+	    sym->symbol.value & 0x3;
+	  sym->symbol.value &= ~0x3;
+	  break;
 
-        case ST_STUB:
-        case ST_CODE:
-        case ST_PRI_PROG:
-        case ST_SEC_PROG:
-          som_symbol_data (sym)->tc_data.ap.hppa_priv_level =
-            sym->symbol.value & 0x3;
-          sym->symbol.value &= ~0x3;
-          if (symbol_scope == SS_UNSAT)
-            {
-              sym->symbol.flags |= BSF_FUNCTION;
-            }
-          break;
+	case ST_STUB:
+	case ST_CODE:
+	case ST_PRI_PROG:
+	case ST_SEC_PROG:
+	  som_symbol_data (sym)->tc_data.ap.hppa_priv_level =
+	    sym->symbol.value & 0x3;
+	  sym->symbol.value &= ~0x3;
+	  if (symbol_scope == SS_UNSAT)
+	    sym->symbol.flags |= BSF_FUNCTION;
+	  break;
 
-        default:
-          break;
-        }
+	default:
+	  break;
+	}
 
       switch (symbol_scope)
-        {
-        case SS_EXTERNAL:
-          if (symbol_type != ST_STORAGE)
-            {
-              sym->symbol.section = bfd_und_section_ptr;
-            }
-          else
-            {
-              sym->symbol.section = bfd_com_section_ptr;
-            }
-          sym->symbol.flags |= (BSF_EXPORT | BSF_GLOBAL);
-          break;
+	{
+	case SS_EXTERNAL:
+	  if (symbol_type != ST_STORAGE)
+	    sym->symbol.section = bfd_und_section_ptr;
+	  else
+	    sym->symbol.section = bfd_com_section_ptr;
+	  sym->symbol.flags |= (BSF_EXPORT | BSF_GLOBAL);
+	  break;
 
-        case SS_UNSAT:
-          if (symbol_type != ST_STORAGE)
-            {
-              sym->symbol.section = bfd_und_section_ptr;
-            }
-          else
-            {
-              sym->symbol.section = bfd_com_section_ptr;
-            }
-          break;
+	case SS_UNSAT:
+	  if (symbol_type != ST_STORAGE)
+	    sym->symbol.section = bfd_und_section_ptr;
+	  else
+	    sym->symbol.section = bfd_com_section_ptr;
+	  break;
 
-        case SS_UNIVERSAL:
-          sym->symbol.flags |= (BSF_EXPORT | BSF_GLOBAL);
-          sym->symbol.section = bfd_section_from_som_symbol (abfd, bufp);
-          sym->symbol.value -= sym->symbol.section->vma;
-          break;
+	case SS_UNIVERSAL:
+	  sym->symbol.flags |= (BSF_EXPORT | BSF_GLOBAL);
+	  sym->symbol.section = bfd_section_from_som_symbol (abfd, bufp);
+	  sym->symbol.value -= sym->symbol.section->vma;
+	  break;
 
-        case SS_LOCAL:
-          sym->symbol.flags |= BSF_LOCAL;
-          sym->symbol.section = bfd_section_from_som_symbol (abfd, bufp);
-          sym->symbol.value -= sym->symbol.section->vma;
-          break;
+	case SS_LOCAL:
+	  sym->symbol.flags |= BSF_LOCAL;
+	  sym->symbol.section = bfd_section_from_som_symbol (abfd, bufp);
+	  sym->symbol.value -= sym->symbol.section->vma;
+	  break;
 
-        default:
-          sym->symbol.section = bfd_und_section_ptr;
-          break;
-        }
+	default:
+	  sym->symbol.section = bfd_und_section_ptr;
+	  break;
+	}
 
       if (flags & SOM_SYMBOL_SECONDARY_DEF)
-        {
-          sym->symbol.flags |= BSF_WEAK;
-        }
+	sym->symbol.flags |= BSF_WEAK;
 
       if (sym->symbol.name[0] == '$'
-          && sym->symbol.name[strlen (sym->symbol.name) - 1] == '$'
-          && !strcmp (sym->symbol.name, sym->symbol.section->name))
-        {
-          sym->symbol.flags |= BSF_SECTION_SYM;
-        }
+	  && sym->symbol.name[strlen (sym->symbol.name) - 1] == '$'
+	  && !strcmp (sym->symbol.name, sym->symbol.section->name))
+	sym->symbol.flags |= BSF_SECTION_SYM;
       else if (startswith (sym->symbol.name, "L$0\002"))
-        {
-          sym->symbol.flags |= BSF_SECTION_SYM;
-          sym->symbol.name = sym->symbol.section->name;
-        }
+	{
+	  sym->symbol.flags |= BSF_SECTION_SYM;
+	  sym->symbol.name = sym->symbol.section->name;
+	}
       else if (startswith (sym->symbol.name, "L$0\001"))
-        {
-          sym->symbol.flags |= BSF_DEBUGGING;
-        }
+	sym->symbol.flags |= BSF_DEBUGGING;
 
       sym++;
     }
 
   abfd->symcount = sym - symbase;
+
   obj_som_symtab (abfd) = symbase;
+ successful_return:
   free (buf);
   return true;
+
+ error_return:
+  free (symbase);
+  free (buf);
+  return false;
 }
 
 /* Canonicalize a SOM symbol table.  Return the number of entries
@@ -4435,31 +4290,25 @@ som_slurp_symbol_table (bfd *abfd)
 static long
 som_canonicalize_symtab (bfd *abfd, asymbol **location)
 {
-  som_symbol_type *symbase;
   long symcount;
+  som_symbol_type *symbase;
   long i;
-
-  if (abfd == NULL || location == NULL)
-    return -1;
 
   if (!som_slurp_symbol_table (abfd))
     return -1;
 
   symcount = bfd_get_symcount (abfd);
-  if (symcount < 0)
-    return -1;
+  if (symcount <= 0)
+    return symcount;
 
   symbase = obj_som_symtab (abfd);
-  if (symbase == NULL)
+  if (!symbase)
     return -1;
 
   for (i = 0; i < symcount; i++)
-    {
-      location[i] = &symbase[i].symbol;
-    }
+    location[i] = &symbase[i].symbol;
 
   location[symcount] = NULL;
-  
   return symcount;
 }
 
@@ -4469,14 +4318,14 @@ static asymbol *
 som_make_empty_symbol (bfd *abfd)
 {
   som_symbol_type *new_symbol_type;
-  
+
   if (abfd == NULL)
     return NULL;
-    
+
   new_symbol_type = bfd_zalloc (abfd, sizeof (som_symbol_type));
   if (new_symbol_type == NULL)
     return NULL;
-    
+
   new_symbol_type->symbol.the_bfd = abfd;
   return &new_symbol_type->symbol;
 }
@@ -4490,19 +4339,17 @@ som_print_symbol (bfd *abfd,
 		  bfd_print_symbol_type how)
 {
   FILE *file = (FILE *) afile;
-  
-  if (file == NULL || symbol == NULL) {
-    return;
-  }
-  
-  if (symbol->name == NULL) {
+
+  if (!file || !symbol) {
     return;
   }
 
   switch (how)
     {
     case bfd_print_symbol_name:
-      fprintf (file, "%s", symbol->name);
+      if (symbol->name) {
+        fprintf (file, "%s", symbol->name);
+      }
       break;
     case bfd_print_symbol_more:
       fprintf (file, "som %08" PRIx64 " %x",
@@ -4510,15 +4357,15 @@ som_print_symbol (bfd *abfd,
       break;
     case bfd_print_symbol_all:
       {
-	const char *section_name = (symbol->section != NULL && symbol->section->name != NULL) 
-	                           ? symbol->section->name 
-	                           : "(*none*)";
+	const char *section_name;
+
+	section_name = (symbol->section && symbol->section->name) ? 
+	               symbol->section->name : "(*none*)";
 	bfd_print_symbol_vandf (abfd, (void *) file, symbol);
-	fprintf (file, " %s\t%s", section_name, symbol->name);
+	fprintf (file, " %s\t%s", section_name, 
+	         symbol->name ? symbol->name : "");
 	break;
       }
-    default:
-      break;
     }
 }
 
@@ -4526,9 +4373,8 @@ static bool
 som_bfd_is_local_label_name (bfd *abfd ATTRIBUTE_UNUSED,
 			     const char *name)
 {
-  if (name == NULL) {
+  if (name == NULL)
     return false;
-  }
   
   return name[0] == 'L' && name[1] == '$';
 }
@@ -4548,255 +4394,305 @@ som_bfd_is_local_label_name (bfd *abfd ATTRIBUTE_UNUSED,
 
 static unsigned int
 som_set_reloc_info (unsigned char *fixup,
-                    unsigned int end,
-                    arelent *internal_relocs,
-                    asection *section,
-                    asymbol **symbols,
-                    unsigned int symcount,
-                    bool just_count)
+		    unsigned int end,
+		    arelent *internal_relocs,
+		    asection *section,
+		    asymbol **symbols,
+		    unsigned int symcount,
+		    bool just_count)
 {
+  unsigned int deallocate_contents = 0;
   unsigned char *end_fixups = &fixup[end];
-  int variables[26] = {0};
-  int stack[20] = {0};
-  int stack_ptr = 0;
-  int saved_unwind_bits = 0;
+  int variables[26], stack[20], count, prev_fixup, *sp, saved_unwind_bits;
   arelent *rptr = internal_relocs;
   unsigned int offset = 0;
-  unsigned int count = 0;
-  bool deallocate_contents = false;
+
+#define	var(c)		variables[(c) - 'A']
+#define	push(v)		(*sp++ = (v))
+#define	pop()		(*--sp)
+#define	emptystack()	(sp == stack)
+
+  if (!fixup || !internal_relocs) {
+    return 0;
+  }
 
   som_initialize_reloc_queue (reloc_queue);
+  memset (variables, 0, sizeof (variables));
+  memset (stack, 0, sizeof (stack));
+  count = 0;
+  prev_fixup = 0;
+  saved_unwind_bits = 0;
+  sp = stack;
 
   while (fixup < end_fixups)
     {
+      const char *cp;
+      unsigned int op;
+      const struct fixup_format *fp;
+
       unsigned char *save_fixup = fixup;
-      unsigned int op = *fixup++;
-      const struct fixup_format *fp = &som_fixup_formats[op];
-      bool prev_fixup = false;
+
+      op = *fixup++;
+      if (op >= sizeof(som_fixup_formats)/sizeof(som_fixup_formats[0])) {
+        break;
+      }
+      fp = &som_fixup_formats[op];
 
       if (*fp->format == 'P')
-        {
-          if (!reloc_queue[fp->D].reloc)
-            continue;
+	{
+	  if (!reloc_queue[fp->D].reloc)
+	    continue;
 
-          fixup = reloc_queue[fp->D].reloc;
-          som_reloc_queue_fix (reloc_queue, fp->D);
-          prev_fixup = true;
+	  fixup = reloc_queue[fp->D].reloc;
+	  som_reloc_queue_fix (reloc_queue, fp->D);
+	  prev_fixup = 1;
 
-          op = *fixup++;
-          fp = &som_fixup_formats[op];
-        }
+	  op = *fixup++;
+          if (op >= sizeof(som_fixup_formats)/sizeof(som_fixup_formats[0])) {
+            break;
+          }
+	  fp = &som_fixup_formats[op];
+	}
 
-      if (!just_count
-          && som_hppa_howto_table[op].type != R_NO_RELOCATION
-          && som_hppa_howto_table[op].type != R_DATA_OVERRIDE)
-        {
-          rptr->address = offset;
-          rptr->howto = &som_hppa_howto_table[op];
-          rptr->addend = 0;
-          rptr->sym_ptr_ptr = &bfd_abs_section_ptr->symbol;
-        }
+      if (! just_count
+	  && som_hppa_howto_table[op].type != R_NO_RELOCATION
+	  && som_hppa_howto_table[op].type != R_DATA_OVERRIDE)
+	{
+	  rptr->address = offset;
+	  rptr->howto = &som_hppa_howto_table[op];
+	  rptr->addend = 0;
+	  rptr->sym_ptr_ptr = &bfd_abs_section_ptr->symbol;
+	}
 
-      variables['L' - 'A'] = 0;
-      variables['D' - 'A'] = fp->D;
-      variables['U' - 'A'] = saved_unwind_bits;
+      var ('L') = 0;
+      var ('D') = fp->D;
+      var ('U') = saved_unwind_bits;
 
-      const char *cp = fp->format;
+      cp = fp->format;
 
       while (*cp)
-        {
-          unsigned int varname = *cp++;
-          
-          do
-            {
-              unsigned int v;
-              int c = *cp++;
+	{
+	  unsigned int varname = *cp++;
+	  const int *subop;
+	  int c;
 
-              if (ISUPPER (c))
-                {
-                  if (stack_ptr < 20)
-                    stack[stack_ptr++] = variables[c - 'A'];
-                }
-              else if (ISLOWER (c))
-                {
-                  int bits = (c - 'a') * 8;
+	  do
+	    {
+	      unsigned v;
+
+	      c = *cp++;
+
+	      if (ISUPPER (c))
+		push (var (c));
+
+	      else if (ISLOWER (c))
+		{
+		  int bits = (c - 'a') * 8;
                   v = 0;
-                  while (c > 'a' && fixup < end_fixups)
-                    {
-                      v = (v << 8) | *fixup++;
-                      c--;
+		  for (; c > 'a' && fixup < end_fixups; --c)
+		    v = (v << 8) | *fixup++;
+		  if (varname == 'V')
+		    v = sign_extend (v, bits);
+		  push (v);
+		}
+
+	      else if (ISDIGIT (c))
+		{
+		  v = c - '0';
+		  while (ISDIGIT (*cp))
+		    v = (v * 10) + (*cp++ - '0');
+		  push (v);
+		}
+	      else
+		switch (c)
+		  {
+		  case '+':
+		    if (sp > stack + 1) {
+                      v = pop ();
+                      v += pop ();
+                      push (v);
                     }
-                  if (varname == 'V')
-                    v = sign_extend (v, bits);
-                  if (stack_ptr < 20)
-                    stack[stack_ptr++] = v;
-                }
-              else if (ISDIGIT (c))
-                {
-                  v = c - '0';
-                  while (ISDIGIT (*cp))
-                    v = (v * 10) + (*cp++ - '0');
-                  if (stack_ptr < 20)
-                    stack[stack_ptr++] = v;
-                }
-              else if (c == '+' || c == '*' || c == '<')
-                {
-                  if (stack_ptr >= 2)
-                    {
-                      int operand2 = stack[--stack_ptr];
-                      int operand1 = stack[--stack_ptr];
-                      if (c == '+')
-                        v = operand1 + operand2;
-                      else if (c == '*')
-                        v = operand1 * operand2;
-                      else
-                        v = operand1 << operand2;
-                      if (stack_ptr < 20)
-                        stack[stack_ptr++] = v;
+		    break;
+		  case '*':
+		    if (sp > stack + 1) {
+                      v = pop ();
+                      v *= pop ();
+                      push (v);
                     }
-                }
-              else if (c != '=')
-                abort ();
-            }
-          while (*cp && *cp != '=');
-
-          if (*cp == '=')
-            cp++;
-
-          int result = 0;
-          if (stack_ptr > 0)
-            result = stack[--stack_ptr];
-
-          if (varname >= 'A' && varname <= 'Z')
-            variables[varname - 'A'] = result;
-
-          if (varname == 'L')
-            offset += result;
-          else if (varname == 'S' && !just_count && symbols != NULL && (unsigned int) result < symcount)
-            rptr->sym_ptr_ptr = &symbols[result];
-          else if (varname == 'R' && !just_count)
-            {
-              unsigned int tmp = variables['R' - 'A'];
-              rptr->addend = 0;
-
-              if ((som_hppa_howto_table[op].type == R_PCREL_CALL && R_PCREL_CALL + 10 > op)
-                  || (som_hppa_howto_table[op].type == R_ABS_CALL && R_ABS_CALL + 10 > op))
-                {
-                  if (tmp > 4)
-                    {
-                      tmp -= 5;
-                      rptr->addend |= 1;
+		    break;
+		  case '<':
+		    if (sp > stack + 1) {
+                      v = pop ();
+                      v = pop () << v;
+                      push (v);
                     }
-                  if (tmp == 4)
-                    rptr->addend |= 1 << 8 | 1 << 6 | 1 << 4 | 1 << 2;
-                  else if (tmp == 3)
-                    rptr->addend |= 1 << 8 | 1 << 6 | 1 << 4;
-                  else if (tmp == 2)
-                    rptr->addend |= 1 << 8 | 1 << 6;
-                  else if (tmp == 1)
-                    rptr->addend |= 1 << 8;
-                }
-              else
-                {
-                  rptr->addend = tmp & 0x3;
-                  tmp >>= 2;
+		    break;
+		  default:
+		    break;
+		  }
+	    }
+	  while (*cp && *cp != '=');
 
-                  unsigned int tmp1 = tmp / 10;
-                  tmp -= tmp1 * 10;
-                  if (tmp1 == 9)
-                    rptr->addend += (0xe << 6);
-                  else
-                    {
-                      unsigned int tmp2 = tmp1 / 3;
-                      tmp1 -= tmp2 * 3;
-                      rptr->addend += (tmp2 << 8) + (tmp1 << 6);
-                    }
+	  cp++;
 
-                  if (tmp == 9)
-                    rptr->addend += (0xe << 2);
-                  else
-                    {
-                      unsigned int tmp2 = tmp / 3;
-                      tmp -= tmp2 * 3;
-                      rptr->addend += (tmp2 << 4) + (tmp << 2);
-                    }
-                }
-              rptr->addend = HPPA_R_ADDEND (rptr->addend, 0);
-            }
-          else if (varname == 'O')
-            {
-              const int *subop = NULL;
-              if (op == R_COMP1)
-                subop = comp1_opcodes;
-              else if (op == R_COMP2)
-                subop = comp2_opcodes;
-              else if (op == R_COMP3)
-                subop = comp3_opcodes;
-              else
-                abort ();
-              
-              if (subop)
-                {
-                  while (*subop <= result)
-                    ++subop;
-                  --subop;
-                }
-            }
-          else if (varname == 'U')
-            saved_unwind_bits = variables['U' - 'A'];
-        }
+          if (sp > stack) {
+            c = pop ();
+          } else {
+            c = 0;
+          }
+
+	  var (varname) = c;
+
+	  switch (varname)
+	    {
+	    case 'L':
+	      offset += c;
+	      break;
+	    case 'S':
+	      if (!just_count && symbols != NULL && (unsigned int) c < symcount)
+		rptr->sym_ptr_ptr = &symbols[c];
+	      break;
+	    case 'R':
+	      if (! just_count)
+		{
+		  unsigned int tmp = var ('R');
+		  rptr->addend = 0;
+
+		  if ((som_hppa_howto_table[op].type == R_PCREL_CALL
+		       && R_PCREL_CALL + 10 > op)
+		      || (som_hppa_howto_table[op].type == R_ABS_CALL
+			  && R_ABS_CALL + 10 > op))
+		    {
+		      if (tmp > 4)
+			{
+			  tmp -= 5;
+			  rptr->addend |= 1;
+			}
+		      if (tmp == 4)
+			rptr->addend |= 1 << 8 | 1 << 6 | 1 << 4 | 1 << 2;
+		      else if (tmp == 3)
+			rptr->addend |= 1 << 8 | 1 << 6 | 1 << 4;
+		      else if (tmp == 2)
+			rptr->addend |= 1 << 8 | 1 << 6;
+		      else if (tmp == 1)
+			rptr->addend |= 1 << 8;
+		    }
+		  else
+		    {
+		      unsigned int tmp1, tmp2;
+
+		      rptr->addend = tmp & 0x3;
+		      tmp >>= 2;
+
+		      tmp1 = tmp / 10;
+		      tmp -= tmp1 * 10;
+		      if (tmp1 == 9)
+			rptr->addend += (0xe << 6);
+		      else
+			{
+			  tmp2 = tmp1 / 3;
+			  tmp1 -= tmp2 * 3;
+			  rptr->addend += (tmp2 << 8) + (tmp1 << 6);
+			}
+
+		      if (tmp == 9)
+			rptr->addend += (0xe << 2);
+		      else
+			{
+			  tmp2 = tmp / 3;
+			  tmp -= tmp2 * 3;
+			  rptr->addend += (tmp2 << 4) + (tmp << 2);
+			}
+		    }
+		  rptr->addend = HPPA_R_ADDEND (rptr->addend, 0);
+		}
+	      break;
+	    case 'O':
+	      switch (op)
+		{
+		case R_COMP1:
+		  subop = comp1_opcodes;
+		  break;
+		case R_COMP2:
+		  subop = comp2_opcodes;
+		  break;
+		case R_COMP3:
+		  subop = comp3_opcodes;
+		  break;
+		default:
+		  subop = NULL;
+		  break;
+		}
+              if (subop) {
+                while (*subop <= (unsigned char) c)
+                  ++subop;
+                --subop;
+              }
+	      break;
+	    case 'U':
+	      saved_unwind_bits = var ('U');
+	      break;
+
+	    default:
+	      break;
+	    }
+	}
 
       if (prev_fixup)
-        fixup = save_fixup + 1;
+	{
+	  fixup = save_fixup + 1;
+	  prev_fixup = 0;
+	}
       else if (fixup > save_fixup + 1)
-        som_reloc_queue_insert (save_fixup, fixup - save_fixup, reloc_queue);
+	som_reloc_queue_insert (save_fixup, fixup - save_fixup, reloc_queue);
 
       if (som_hppa_howto_table[op].type != R_DATA_OVERRIDE
-          && som_hppa_howto_table[op].type != R_NO_RELOCATION)
-        {
-          if (!just_count)
-            {
-              if (som_hppa_howto_table[op].type == R_ENTRY)
-                rptr->addend = variables['T' - 'A'];
-              else if (som_hppa_howto_table[op].type == R_EXIT)
-                rptr->addend = variables['U' - 'A'];
-              else if (som_hppa_howto_table[op].type == R_PCREL_CALL
-                       || som_hppa_howto_table[op].type == R_ABS_CALL)
-                ;
-              else if (som_hppa_howto_table[op].type == R_DATA_ONE_SYMBOL)
-                {
-                  rptr->addend = variables['V' - 'A'];
+	  && som_hppa_howto_table[op].type != R_NO_RELOCATION)
+	{
+	  if (! just_count)
+	    {
+	      if (som_hppa_howto_table[op].type == R_ENTRY)
+		rptr->addend = var ('T');
+	      else if (som_hppa_howto_table[op].type == R_EXIT)
+		rptr->addend = var ('U');
+	      else if (som_hppa_howto_table[op].type == R_PCREL_CALL
+		       || som_hppa_howto_table[op].type == R_ABS_CALL)
+		;
+	      else if (som_hppa_howto_table[op].type == R_DATA_ONE_SYMBOL)
+		{
+		  rptr->addend = var ('V');
 
-                  if (rptr->addend == 0 && (section->flags & SEC_HAS_CONTENTS) != 0)
-                    {
-                      if (!section->contents)
-                        {
-                          bfd_byte *contents = NULL;
-                          if (!bfd_malloc_and_get_section (section->owner, section, &contents))
-                            {
-                              free (contents);
-                              return (unsigned) -1;
-                            }
-                          section->contents = contents;
-                          deallocate_contents = true;
-                        }
-                      unsigned int read_offset = offset - variables['L' - 'A'];
-                      if (read_offset <= section->size && section->size - read_offset >= 4)
-                        rptr->addend = bfd_get_32 (section->owner,
-                                                   section->contents + read_offset);
-                    }
-                }
-              else
-                rptr->addend = variables['V' - 'A'];
-              rptr++;
-            }
-          count++;
-          memset (variables, 0, sizeof (variables));
-          memset (stack, 0, sizeof (stack));
-          stack_ptr = 0;
-        }
+		  if (rptr->addend == 0
+		      && (section->flags & SEC_HAS_CONTENTS) != 0)
+		    {
+		      if (!section->contents)
+			{
+			  bfd_byte *contents;
+			  if (!bfd_malloc_and_get_section (section->owner,
+							   section, &contents))
+			    {
+			      free (contents);
+			      return (unsigned) -1;
+			    }
+			  section->contents = contents;
+			  deallocate_contents = 1;
+			}
+		      if (offset - var ('L') <= section->size
+			  && section->size - (offset - var ('L')) >= 4)
+			rptr->addend = bfd_get_32 (section->owner,
+						   (section->contents
+						    + offset - var ('L')));
+		    }
+		}
+	      else
+		rptr->addend = var ('V');
+	      rptr++;
+	    }
+	  count++;
+	  memset (variables, 0, sizeof (variables));
+	  memset (stack, 0, sizeof (stack));
+	}
     }
-  
   if (deallocate_contents)
     {
       free (section->contents);
@@ -4804,6 +4700,11 @@ som_set_reloc_info (unsigned char *fixup,
     }
 
   return count;
+
+#undef var
+#undef push
+#undef pop
+#undef emptystack
 }
 
 /* Read in the relocs (aka fixups in SOM terms) for a section.
@@ -4824,10 +4725,13 @@ som_slurp_reloc_table (bfd *abfd,
   unsigned int num_relocs;
   size_t amt;
 
-  if (section->reloc_count == 0)
-    return true;
+  if (section == NULL)
+    return false;
 
   fixup_stream_size = som_section_data (section)->reloc_size;
+  
+  if (section->reloc_count == 0)
+    return true;
 
   if (section->reloc_count == (unsigned) -1)
     {
@@ -4855,6 +4759,9 @@ som_slurp_reloc_table (bfd *abfd,
 
   num_relocs = section->reloc_count;
   external_relocs = som_section_data (section)->reloc_stream;
+  
+  if (external_relocs == NULL)
+    return false;
 
   if (_bfd_mul_overflow (num_relocs, sizeof (arelent), &amt))
     {
@@ -4888,7 +4795,7 @@ som_get_reloc_upper_bound (bfd *abfd, sec_ptr asect)
 
   if (!som_slurp_reloc_table (abfd, asect, NULL, true))
     return -1;
-
+    
   return (asect->reloc_count + 1) * sizeof (arelent *);
 }
 
@@ -4901,25 +4808,30 @@ som_canonicalize_reloc (bfd *abfd,
 			arelent **relptr,
 			asymbol **symbols)
 {
+  arelent *tblptr;
+  int count;
+
   if (abfd == NULL || section == NULL || relptr == NULL)
     return -1;
 
-  if (!som_slurp_reloc_table (abfd, section, symbols, false))
+  if (! som_slurp_reloc_table (abfd, section, symbols, false))
     return -1;
 
-  arelent *tblptr = section->relocation;
-  if (tblptr == NULL)
+  count = section->reloc_count;
+  if (count < 0)
+    return -1;
+
+  tblptr = section->relocation;
+  if (tblptr == NULL && count > 0)
+    return -1;
+
+  while (count > 0)
     {
-      *relptr = NULL;
-      return 0;
+      *relptr++ = tblptr++;
+      count--;
     }
 
-  for (int i = 0; i < section->reloc_count; i++)
-    {
-      relptr[i] = &tblptr[i];
-    }
-
-  relptr[section->reloc_count] = NULL;
+  *relptr = NULL;
   return section->reloc_count;
 }
 
@@ -4930,13 +4842,11 @@ extern const bfd_target hppa_som_vec;
 static bool
 som_new_section_hook (bfd *abfd, asection *newsect)
 {
-  if (abfd == NULL || newsect == NULL)
+  if (!abfd || !newsect)
     return false;
 
-  size_t amt = sizeof (struct som_section_data_struct);
-
-  newsect->used_by_bfd = bfd_zalloc (abfd, amt);
-  if (newsect->used_by_bfd == NULL)
+  newsect->used_by_bfd = bfd_zalloc (abfd, sizeof (struct som_section_data_struct));
+  if (!newsect->used_by_bfd)
     return false;
 
   newsect->alignment_power = 3;
@@ -4953,23 +4863,15 @@ som_bfd_copy_private_symbol_data (bfd *ibfd,
 				  bfd *obfd,
 				  asymbol *osymbol)
 {
-  struct som_symbol *input_symbol;
-  struct som_symbol *output_symbol;
-
-  if (ibfd == NULL || isymbol == NULL || obfd == NULL || osymbol == NULL)
+  if (!ibfd || !isymbol || !obfd || !osymbol)
     return false;
 
-  if (ibfd->xvec == NULL || obfd->xvec == NULL)
+  if (ibfd->xvec->flavour != bfd_target_som_flavour
+      || obfd->xvec->flavour != bfd_target_som_flavour)
     return false;
 
-  if (ibfd->xvec->flavour != bfd_target_som_flavour)
-    return false;
-
-  if (obfd->xvec->flavour != bfd_target_som_flavour)
-    return false;
-
-  input_symbol = (struct som_symbol *) isymbol;
-  output_symbol = (struct som_symbol *) osymbol;
+  struct som_symbol *input_symbol = (struct som_symbol *) isymbol;
+  struct som_symbol *output_symbol = (struct som_symbol *) osymbol;
 
   output_symbol->tc_data.ap.hppa_arg_reloc =
     input_symbol->tc_data.ap.hppa_arg_reloc;
@@ -4987,48 +4889,41 @@ som_bfd_copy_private_section_data (bfd *ibfd,
 				   asection *osection,
 				   struct bfd_link_info *link_info)
 {
-  struct som_copyable_section_data_struct *src_data;
-  struct som_copyable_section_data_struct *dst_data;
-  asection *container;
-  size_t data_size;
-
-  if (link_info != NULL)
+  if (link_info != NULL
+      || ibfd->xvec->flavour != bfd_target_som_flavour
+      || obfd->xvec->flavour != bfd_target_som_flavour
+      || (!som_is_space (isection) && !som_is_subspace (isection)))
     return true;
 
-  if (ibfd->xvec->flavour != bfd_target_som_flavour)
-    return true;
-
-  if (obfd->xvec->flavour != bfd_target_som_flavour)
-    return true;
-
-  if (!som_is_space (isection) && !som_is_subspace (isection))
-    return true;
-
-  src_data = som_section_data (isection)->copy_data;
-  if (src_data == NULL)
+  size_t amt = sizeof (struct som_copyable_section_data_struct);
+  som_section_data (osection)->copy_data = bfd_zalloc (obfd, amt);
+  if (som_section_data (osection)->copy_data == NULL)
     return false;
 
-  data_size = sizeof (struct som_copyable_section_data_struct);
-  dst_data = bfd_zalloc (obfd, data_size);
-  if (dst_data == NULL)
+  if (som_section_data (isection)->copy_data == NULL)
     return false;
 
-  som_section_data (osection)->copy_data = dst_data;
-  memcpy (dst_data, src_data, data_size);
+  memcpy (som_section_data (osection)->copy_data,
+	  som_section_data (isection)->copy_data,
+	  sizeof (struct som_copyable_section_data_struct));
 
-  container = dst_data->container;
-  if (container == NULL)
-    return true;
-
-  if (container->output_section != NULL)
+  if (som_section_data (osection)->copy_data->container)
     {
-      dst_data->container = container->output_section;
-      return true;
+      if (som_section_data (osection)->copy_data->container->output_section)
+	{
+	  som_section_data (osection)->copy_data->container =
+	    som_section_data (osection)->copy_data->container->output_section;
+	}
+      else
+	{
+	  _bfd_error_handler (_("%pB[%pA]: no output section for space %pA"),
+			      obfd, osection,
+			      som_section_data (osection)->copy_data->container);
+	  return false;
+	}
     }
 
-  _bfd_error_handler (_("%pB[%pA]: no output section for space %pA"),
-		      obfd, osection, container);
-  return false;
+  return true;
 }
 
 /* Copy any private info we understand from the input bfd
@@ -5037,29 +4932,22 @@ som_bfd_copy_private_section_data (bfd *ibfd,
 static bool
 som_bfd_copy_private_bfd_data (bfd *ibfd, bfd *obfd)
 {
-  struct som_exec_data *src_data;
-  struct som_exec_data *dst_data;
-  
   if (ibfd == NULL || obfd == NULL)
     return false;
-    
-  if (ibfd->xvec == NULL || obfd->xvec == NULL)
-    return false;
-    
+
   if (ibfd->xvec->flavour != bfd_target_som_flavour
       || obfd->xvec->flavour != bfd_target_som_flavour)
     return true;
 
-  src_data = obj_som_exec_data (ibfd);
-  if (src_data == NULL)
-    return false;
-    
-  dst_data = bfd_zalloc (obfd, sizeof (struct som_exec_data));
-  if (dst_data == NULL)
+  if (obj_som_exec_data (ibfd) == NULL)
     return false;
 
-  memcpy (dst_data, src_data, sizeof (struct som_exec_data));
-  obj_som_exec_data (obfd) = dst_data;
+  obj_som_exec_data (obfd) = bfd_zalloc (obfd, sizeof (struct som_exec_data));
+  if (obj_som_exec_data (obfd) == NULL)
+    return false;
+
+  memcpy (obj_som_exec_data (obfd), obj_som_exec_data (ibfd),
+          sizeof (struct som_exec_data));
 
   return true;
 }
@@ -5067,69 +4955,63 @@ som_bfd_copy_private_bfd_data (bfd *ibfd, bfd *obfd)
 /* Display the SOM header.  */
 
 static bool
-som_bfd_print_private_bfd_data (bfd *abfd, void *farg)
+som_bfd_print_private_bfd_data(bfd *abfd, void *farg)
 {
-  struct som_exec_auxhdr *exec_header;
-  struct som_aux_id* auxhdr;
-  FILE *f;
+    struct som_exec_auxhdr *exec_header;
+    struct som_aux_id *auxhdr;
+    FILE *f;
 
-  if (!abfd || !farg)
-    return false;
+    if (!abfd || !farg) {
+        return false;
+    }
 
-  f = (FILE *) farg;
-  exec_header = obj_som_exec_hdr (abfd);
-  
-  if (!exec_header)
+    f = (FILE *)farg;
+    exec_header = obj_som_exec_hdr(abfd);
+    
+    if (!exec_header) {
+        return true;
+    }
+
+    auxhdr = &exec_header->som_auxhdr;
+
+    if (fprintf(f, _("\nExec Auxiliary Header\n")) < 0) {
+        return false;
+    }
+
+    if (fprintf(f, "  flags              ") < 0) {
+        return false;
+    }
+
+    if (auxhdr->mandatory && fprintf(f, "mandatory ") < 0) {
+        return false;
+    }
+    if (auxhdr->copy && fprintf(f, "copy ") < 0) {
+        return false;
+    }
+    if (auxhdr->append && fprintf(f, "append ") < 0) {
+        return false;
+    }
+    if (auxhdr->ignore && fprintf(f, "ignore ") < 0) {
+        return false;
+    }
+
+    if (fprintf(f, "\n") < 0 ||
+        fprintf(f, "  type               %#x\n", auxhdr->type) < 0 ||
+        fprintf(f, "  length             %#x\n", auxhdr->length) < 0 ||
+        fprintf(f, "  text size          %#lx\n", (long)exec_header->exec_tsize) < 0 ||
+        fprintf(f, "  text memory offset %#lx\n", (long)exec_header->exec_tmem) < 0 ||
+        fprintf(f, "  text file offset   %#lx\n", (long)exec_header->exec_tfile) < 0 ||
+        fprintf(f, "  data size          %#lx\n", (long)exec_header->exec_dsize) < 0 ||
+        fprintf(f, "  data memory offset %#lx\n", (long)exec_header->exec_dmem) < 0 ||
+        fprintf(f, "  data file offset   %#lx\n", (long)exec_header->exec_dfile) < 0 ||
+        fprintf(f, "  bss size           %#lx\n", (long)exec_header->exec_bsize) < 0 ||
+        fprintf(f, "  entry point        %#lx\n", (long)exec_header->exec_entry) < 0 ||
+        fprintf(f, "  loader flags       %#lx\n", (long)exec_header->exec_flags) < 0 ||
+        fprintf(f, "  bss initializer    %#lx\n", (long)exec_header->exec_bfill) < 0) {
+        return false;
+    }
+
     return true;
-
-  auxhdr = &exec_header->som_auxhdr;
-  if (!auxhdr)
-    return true;
-
-  if (fprintf (f, _("\nExec Auxiliary Header\n")) < 0)
-    return false;
-  
-  if (fprintf (f, "  flags              ") < 0)
-    return false;
-  
-  if (auxhdr->mandatory && fprintf (f, "mandatory ") < 0)
-    return false;
-  if (auxhdr->copy && fprintf (f, "copy ") < 0)
-    return false;
-  if (auxhdr->append && fprintf (f, "append ") < 0)
-    return false;
-  if (auxhdr->ignore && fprintf (f, "ignore ") < 0)
-    return false;
-  
-  if (fprintf (f, "\n") < 0)
-    return false;
-  
-  if (fprintf (f, "  type               %#x\n", auxhdr->type) < 0)
-    return false;
-  if (fprintf (f, "  length             %#x\n", auxhdr->length) < 0)
-    return false;
-  if (fprintf (f, "  text size          %#lx\n", (long) exec_header->exec_tsize) < 0)
-    return false;
-  if (fprintf (f, "  text memory offset %#lx\n", (long) exec_header->exec_tmem) < 0)
-    return false;
-  if (fprintf (f, "  text file offset   %#lx\n", (long) exec_header->exec_tfile) < 0)
-    return false;
-  if (fprintf (f, "  data size          %#lx\n", (long) exec_header->exec_dsize) < 0)
-    return false;
-  if (fprintf (f, "  data memory offset %#lx\n", (long) exec_header->exec_dmem) < 0)
-    return false;
-  if (fprintf (f, "  data file offset   %#lx\n", (long) exec_header->exec_dfile) < 0)
-    return false;
-  if (fprintf (f, "  bss size           %#lx\n", (long) exec_header->exec_bsize) < 0)
-    return false;
-  if (fprintf (f, "  entry point        %#lx\n", (long) exec_header->exec_entry) < 0)
-    return false;
-  if (fprintf (f, "  loader flags       %#lx\n", (long) exec_header->exec_flags) < 0)
-    return false;
-  if (fprintf (f, "  bss initializer    %#lx\n", (long) exec_header->exec_bfill) < 0)
-    return false;
-
-  return true;
 }
 
 /* Set backend info for sections which can not be described
@@ -5142,29 +5024,32 @@ bfd_som_set_section_attributes (asection *section,
 				unsigned int sort_key,
 				int spnum)
 {
+  struct som_section_data_struct *section_data;
   struct som_copyable_section_data_struct *copy_data;
-  
-  if (section == NULL || som_section_data(section) == NULL) {
+  size_t amt;
+
+  if (section == NULL)
     return false;
-  }
-  
-  copy_data = som_section_data(section)->copy_data;
-  
-  if (copy_data == NULL) {
-    size_t amt = sizeof(struct som_copyable_section_data_struct);
-    copy_data = bfd_zalloc(section->owner, amt);
-    if (copy_data == NULL) {
-      return false;
+
+  section_data = som_section_data (section);
+  if (section_data == NULL)
+    return false;
+
+  if (section_data->copy_data == NULL)
+    {
+      amt = sizeof (struct som_copyable_section_data_struct);
+      section_data->copy_data = bfd_zalloc (section->owner, amt);
+      if (section_data->copy_data == NULL)
+	return false;
     }
-    som_section_data(section)->copy_data = copy_data;
-  }
-  
+
+  copy_data = section_data->copy_data;
   copy_data->sort_key = sort_key;
   copy_data->is_defined = defined;
   copy_data->is_private = private;
   copy_data->container = section;
   copy_data->space_number = spnum;
-  
+
   return true;
 }
 
@@ -5181,27 +5066,25 @@ bfd_som_set_subsection_attributes (asection *section,
 				   int common,
 				   int dup_common)
 {
+  struct som_section_data_struct *section_data;
   struct som_copyable_section_data_struct *copy_data;
   
-  if (section == NULL || som_section_data(section) == NULL)
+  if (!section)
     return false;
     
-  copy_data = som_section_data(section)->copy_data;
-  
-  if (copy_data == NULL)
+  section_data = som_section_data (section);
+  if (!section_data)
+    return false;
+
+  if (section_data->copy_data == NULL)
     {
-      size_t amt = sizeof(struct som_copyable_section_data_struct);
-      
-      if (section->owner == NULL)
-        return false;
-        
-      copy_data = bfd_zalloc(section->owner, amt);
-      if (copy_data == NULL)
-        return false;
-        
-      som_section_data(section)->copy_data = copy_data;
+      size_t amt = sizeof (struct som_copyable_section_data_struct);
+      section_data->copy_data = bfd_zalloc (section->owner, amt);
+      if (section_data->copy_data == NULL)
+	return false;
     }
-    
+
+  copy_data = section_data->copy_data;
   copy_data->sort_key = sort_key;
   copy_data->access_control_bits = access_ctr;
   copy_data->quadrant = quadrant;
@@ -5209,7 +5092,6 @@ bfd_som_set_subsection_attributes (asection *section,
   copy_data->is_comdat = comdat;
   copy_data->is_common = common;
   copy_data->dup_common = dup_common;
-  
   return true;
 }
 
@@ -5222,14 +5104,10 @@ bfd_som_set_subsection_attributes (asection *section,
 void
 bfd_som_set_symbol_type (asymbol *symbol, unsigned int type)
 {
-  if (symbol == NULL) {
+  if (symbol == NULL)
     return;
-  }
-  
-  som_symbol_data_struct *data = som_symbol_data(symbol);
-  if (data != NULL) {
-    data->som_type = type;
-  }
+    
+  som_symbol_data (symbol)->som_type = type;
 }
 
 /* Attach an auxiliary header to the BFD backend so that it may be
@@ -5238,31 +5116,42 @@ bfd_som_set_symbol_type (asymbol *symbol, unsigned int type)
 bool
 bfd_som_attach_aux_hdr (bfd *abfd, int type, char *string)
 {
-  if (abfd == NULL || string == NULL)
+  struct som_string_auxhdr **hdr_ptr;
+  int aux_type;
+  size_t len, pad, amt;
+
+  if (!abfd || !string)
     return false;
-
-  if (type != VERSION_AUX_ID && type != COPYRIGHT_AUX_ID)
-    return true;
-
-  size_t len = strlen (string);
-  size_t pad = (4 - (len % 4)) & 3;
-  size_t amt = sizeof (struct som_string_auxhdr) + len + pad;
-
-  void *hdr = bfd_zalloc (abfd, amt);
-  if (!hdr)
-    return false;
-
-  struct som_string_auxhdr *aux_hdr = (struct som_string_auxhdr *)hdr;
-  aux_hdr->header_id.type = type;
-  aux_hdr->header_id.length = 4 + len + pad;
-  aux_hdr->string_length = len;
-  memcpy (aux_hdr->string, string, len);
-  memset (aux_hdr->string + len, 0, pad);
 
   if (type == VERSION_AUX_ID)
-    obj_som_version_hdr (abfd) = aux_hdr;
+    {
+      hdr_ptr = &obj_som_version_hdr (abfd);
+      aux_type = VERSION_AUX_ID;
+    }
+  else if (type == COPYRIGHT_AUX_ID)
+    {
+      hdr_ptr = &obj_som_copyright_hdr (abfd);
+      aux_type = COPYRIGHT_AUX_ID;
+    }
   else
-    obj_som_copyright_hdr (abfd) = aux_hdr;
+    {
+      return false;
+    }
+
+  len = strlen (string);
+  pad = (len % 4) ? (4 - (len % 4)) : 0;
+  amt = sizeof (struct som_string_auxhdr) + len + pad;
+
+  *hdr_ptr = bfd_zalloc (abfd, amt);
+  if (!*hdr_ptr)
+    return false;
+
+  (*hdr_ptr)->header_id.type = aux_type;
+  (*hdr_ptr)->header_id.length = 4 + len + pad;
+  (*hdr_ptr)->string_length = len;
+  memcpy ((*hdr_ptr)->string, string, len);
+  if (pad > 0)
+    memset ((*hdr_ptr)->string + len, 0, pad);
 
   return true;
 }
@@ -5292,8 +5181,8 @@ bfd_som_attach_compilation_unit (bfd *abfd,
       size_t len = strlen (name) + 1;
       n->name.name = bfd_alloc (abfd, (bfd_size_type) len);
       if (n->name.name == NULL)
-        return false;
-      memcpy (n->name.name, name, len);
+	return false;
+      strcpy (n->name.name, name);
     }
 
   if (language_name != NULL)
@@ -5301,8 +5190,8 @@ bfd_som_attach_compilation_unit (bfd *abfd,
       size_t len = strlen (language_name) + 1;
       n->language_name.name = bfd_alloc (abfd, (bfd_size_type) len);
       if (n->language_name.name == NULL)
-        return false;
-      memcpy (n->language_name.name, language_name, len);
+	return false;
+      strcpy (n->language_name.name, language_name);
     }
 
   if (product_id != NULL)
@@ -5310,8 +5199,8 @@ bfd_som_attach_compilation_unit (bfd *abfd,
       size_t len = strlen (product_id) + 1;
       n->product_id.name = bfd_alloc (abfd, (bfd_size_type) len);
       if (n->product_id.name == NULL)
-        return false;
-      memcpy (n->product_id.name, product_id, len);
+	return false;
+      strcpy (n->product_id.name, product_id);
     }
 
   if (version_id != NULL)
@@ -5319,8 +5208,8 @@ bfd_som_attach_compilation_unit (bfd *abfd,
       size_t len = strlen (version_id) + 1;
       n->version_id.name = bfd_alloc (abfd, (bfd_size_type) len);
       if (n->version_id.name == NULL)
-        return false;
-      memcpy (n->version_id.name, version_id, len);
+	return false;
+      strcpy (n->version_id.name, version_id);
     }
 
   obj_som_compilation_unit (abfd) = n;
@@ -5335,25 +5224,17 @@ som_get_section_contents (bfd *abfd,
 			  file_ptr offset,
 			  bfd_size_type count)
 {
-  if (count == 0) {
+  if (count == 0 || (section->flags & SEC_HAS_CONTENTS) == 0)
     return true;
-  }
   
-  if ((section->flags & SEC_HAS_CONTENTS) == 0) {
-    return true;
-  }
-  
-  if ((bfd_size_type) (offset + count) > section->size) {
+  if ((bfd_size_type) (offset + count) > section->size)
     return false;
-  }
   
-  if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0) {
+  if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0)
     return false;
-  }
   
-  if (bfd_read (location, count, abfd) != count) {
+  if (bfd_read (location, count, abfd) != count)
     return false;
-  }
   
   return true;
 }
@@ -5365,9 +5246,6 @@ som_set_section_contents (bfd *abfd,
 			  file_ptr offset,
 			  bfd_size_type count)
 {
-  struct som_section_data_struct *section_data;
-  file_ptr write_offset;
-
   if (abfd == NULL || section == NULL || location == NULL)
     return false;
 
@@ -5378,99 +5256,90 @@ som_set_section_contents (bfd *abfd,
       som_begin_writing (abfd);
     }
 
-  if (!som_is_subspace (section))
+  if (!som_is_subspace (section) || !(section->flags & SEC_HAS_CONTENTS))
     return true;
 
-  if ((section->flags & SEC_HAS_CONTENTS) == 0)
-    return true;
-
-  section_data = som_section_data (section);
-  if (section_data == NULL || section_data->subspace_dict == NULL)
+  if (som_section_data (section) == NULL || 
+      som_section_data (section)->subspace_dict == NULL)
     return false;
 
-  write_offset = offset + section_data->subspace_dict->file_loc_init_value;
-
-  if (bfd_seek (abfd, write_offset, SEEK_SET) != 0)
+  offset += som_section_data (section)->subspace_dict->file_loc_init_value;
+  
+  if (bfd_seek (abfd, offset, SEEK_SET) != 0)
     return false;
 
   if (bfd_write (location, count, abfd) != count)
     return false;
-
+    
   return true;
 }
 
 static bool
-som_set_arch_mach (bfd *abfd,
-		   enum bfd_architecture arch,
-		   unsigned long machine)
+som_set_arch_mach(bfd *abfd,
+                  enum bfd_architecture arch,
+                  unsigned long machine)
 {
-  if (abfd == NULL)
-    return false;
+    if (abfd == NULL)
+        return false;
     
-  return bfd_default_set_arch_mach (abfd, arch, machine);
+    return bfd_default_set_arch_mach(abfd, arch, machine);
 }
 
 static bool
-som_find_nearest_line(bfd *abfd,
-                      asymbol **symbols,
-                      asection *section,
-                      bfd_vma offset,
-                      const char **filename_ptr,
-                      const char **functionname_ptr,
-                      unsigned int *line_ptr,
-                      unsigned int *discriminator_ptr)
+som_find_nearest_line (bfd *abfd,
+		       asymbol **symbols,
+		       asection *section,
+		       bfd_vma offset,
+		       const char **filename_ptr,
+		       const char **functionname_ptr,
+		       unsigned int *line_ptr,
+		       unsigned int *discriminator_ptr)
 {
-  bool found = false;
-  
-  if (discriminator_ptr != NULL) {
+  bool found;
+  asymbol *func;
+  bfd_vma low_func;
+  asymbol **p;
+
+  if (!abfd || !section || !filename_ptr || !functionname_ptr || !line_ptr)
+    return false;
+
+  if (discriminator_ptr)
     *discriminator_ptr = 0;
-  }
 
-  if (abfd == NULL || section == NULL || filename_ptr == NULL || 
-      functionname_ptr == NULL || line_ptr == NULL) {
+  if (!_bfd_stab_section_find_nearest_line (abfd, symbols, section, offset,
+					    &found, filename_ptr,
+					    functionname_ptr, line_ptr,
+					    &somdata (abfd).line_info))
     return false;
-  }
 
-  if (!_bfd_stab_section_find_nearest_line(abfd, symbols, section, offset,
-                                           &found, filename_ptr,
-                                           functionname_ptr, line_ptr,
-                                           &somdata(abfd).line_info)) {
-    return false;
-  }
-
-  if (found) {
+  if (found)
     return true;
-  }
 
-  if (symbols == NULL) {
+  if (symbols == NULL)
     return false;
-  }
 
-  asymbol *func = NULL;
-  bfd_vma low_func = 0;
+  func = NULL;
+  low_func = 0;
 
-  for (asymbol **p = symbols; *p != NULL; p++) {
-    som_symbol_type *q = (som_symbol_type *)*p;
-    
-    if (q == NULL) {
-      continue;
+  for (p = symbols; *p != NULL; p++)
+    {
+      som_symbol_type *q = (som_symbol_type *) *p;
+
+      if (q->som_type == SYMBOL_TYPE_ENTRY
+	  && q->symbol.section == section
+	  && q->symbol.value >= low_func
+	  && q->symbol.value <= offset)
+	{
+	  func = (asymbol *) q;
+	  low_func = q->symbol.value;
+	}
     }
-    
-    if (q->som_type == SYMBOL_TYPE_ENTRY &&
-        q->symbol.section == section &&
-        q->symbol.value >= low_func &&
-        q->symbol.value <= offset) {
-      func = (asymbol *)q;
-      low_func = q->symbol.value;
-    }
-  }
 
-  if (func == NULL) {
+  if (func == NULL)
     return false;
-  }
 
   *filename_ptr = NULL;
-  *functionname_ptr = bfd_asymbol_name(func);
+  *functionname_ptr = bfd_asymbol_name (func);
   *line_ptr = 0;
 
   return true;
@@ -5481,25 +5350,25 @@ som_sizeof_headers (bfd *abfd ATTRIBUTE_UNUSED,
 		    struct bfd_link_info *info ATTRIBUTE_UNUSED)
 {
   _bfd_error_handler (_("som_sizeof_headers unimplemented"));
-  return -1;
+  _exit (EXIT_FAILURE);
 }
 
 /* Return the single-character symbol type corresponding to
    SOM section S, or '?' for an unknown SOM section.  */
 
-static char som_section_type(const char *s)
+static char
+som_section_type(const char *s)
 {
-    if (s == NULL) {
-        return '?';
-    }
-    
-    for (const struct section_to_type *t = stt; t->section != NULL; t++) {
-        if (strcmp(s, t->section) == 0) {
-            return t->type;
-        }
-    }
-    
+  const struct section_to_type *t;
+
+  if (!s)
     return '?';
+
+  for (t = stt; t->section; t++)
+    if (strcmp(s, t->section) == 0)
+      return t->type;
+  
+  return '?';
 }
 
 static int
@@ -5512,37 +5381,36 @@ som_decode_symclass (asymbol *symbol)
 
   if (bfd_is_com_section (symbol->section))
     return 'C';
-    
+
   if (bfd_is_und_section (symbol->section))
     {
       if (symbol->flags & BSF_WEAK)
         return (symbol->flags & BSF_OBJECT) ? 'v' : 'w';
-      return 'U';
+      else
+        return 'U';
     }
-    
+
   if (bfd_is_ind_section (symbol->section))
     return 'I';
-    
+
   if (symbol->flags & BSF_WEAK)
     return (symbol->flags & BSF_OBJECT) ? 'V' : 'W';
-    
+
   if (!(symbol->flags & (BSF_GLOBAL | BSF_LOCAL)))
     return '?';
 
   if (bfd_is_abs_section (symbol->section) ||
       (som_symbol_data (symbol) != NULL &&
        som_symbol_data (symbol)->som_type == SYMBOL_TYPE_ABSOLUTE))
-    {
-      c = 'a';
-    }
+    c = 'a';
+  else if (symbol->section)
+    c = som_section_type (symbol->section->name);
   else
-    {
-      c = som_section_type (symbol->section->name);
-    }
-    
+    return '?';
+
   if (symbol->flags & BSF_GLOBAL)
     c = TOUPPER (c);
-    
+
   return c;
 }
 
@@ -5553,12 +5421,13 @@ som_get_symbol_info (bfd *ignore_abfd ATTRIBUTE_UNUSED,
 		     asymbol *symbol,
 		     symbol_info *ret)
 {
-  if (symbol == NULL || ret == NULL) {
+  if (!symbol || !ret) {
     return;
   }
-  
+
   ret->type = som_decode_symclass (symbol);
-  ret->value = (ret->type != 'U') ? (symbol->value + symbol->section->vma) : 0;
+  ret->value = (ret->type != 'U' && symbol->section) ? 
+               symbol->value + symbol->section->vma : 0;
   ret->name = symbol->name;
 }
 
@@ -5570,39 +5439,45 @@ som_bfd_count_ar_symbols (bfd *abfd,
 			  struct som_lst_header *lst_header,
 			  symindex *count)
 {
-  unsigned int i;
   unsigned char *hash_table = NULL;
   size_t amt;
   file_ptr lst_filepos;
   bool result = false;
 
-  *count = 0;
+  if (!abfd || !lst_header || !count) {
+    bfd_set_error (bfd_error_invalid_operation);
+    return false;
+  }
 
   lst_filepos = bfd_tell (abfd) - sizeof (struct som_external_lst_header);
 
-  if (_bfd_mul_overflow (lst_header->hash_size, 4, &amt))
-    {
-      bfd_set_error (bfd_error_file_too_big);
-      return false;
-    }
+  if (_bfd_mul_overflow (lst_header->hash_size, 4, &amt)) {
+    bfd_set_error (bfd_error_file_too_big);
+    return false;
+  }
 
-  if (lst_header->hash_size == 0)
+  if (lst_header->hash_size == 0) {
+    *count = 0;
     return true;
+  }
 
   hash_table = _bfd_malloc_and_read (abfd, amt, amt);
-  if (hash_table == NULL)
+  if (hash_table == NULL) {
     return false;
+  }
 
-  for (i = 0; i < lst_header->hash_size; i++)
-    {
-      unsigned int hash_val = bfd_getb32 (hash_table + 4 * i);
-      
-      if (hash_val == 0)
-        continue;
+  *count = 0;
 
-      if (!process_hash_chain(abfd, lst_filepos, hash_val, count))
-        goto cleanup;
+  for (unsigned int i = 0; i < lst_header->hash_size; i++) {
+    unsigned int hash_val = bfd_getb32 (hash_table + 4 * i);
+
+    if (hash_val == 0)
+      continue;
+
+    if (!som_count_symbols_in_chain (abfd, lst_filepos, hash_val, count)) {
+      goto cleanup;
     }
+  }
 
   result = true;
 
@@ -5612,36 +5487,33 @@ cleanup:
 }
 
 static bool
-process_hash_chain(bfd *abfd, file_ptr lst_filepos, unsigned int hash_val, symindex *count)
+som_count_symbols_in_chain (bfd *abfd, file_ptr lst_filepos, 
+                           unsigned int hash_val, symindex *count)
 {
   struct som_external_lst_symbol_record ext_lst_symbol;
   size_t amt = sizeof (ext_lst_symbol);
-  unsigned int current_pos = hash_val;
+  unsigned int current_offset = hash_val;
 
-  do
-    {
-      if (bfd_seek (abfd, lst_filepos + current_pos, SEEK_SET) != 0)
-        return false;
-
-      if (bfd_read (&ext_lst_symbol, amt, abfd) != amt)
-        return false;
-
-      (*count)++;
-
-      unsigned int next_entry = bfd_getb32 (ext_lst_symbol.next_entry);
-      
-      if (next_entry == 0)
-        break;
-
-      if (next_entry <= current_pos + amt)
-        {
-          bfd_set_error (bfd_error_bad_value);
-          return false;
-        }
-
-      current_pos = next_entry;
+  while (current_offset != 0) {
+    if (bfd_seek (abfd, lst_filepos + current_offset, SEEK_SET) != 0) {
+      return false;
     }
-  while (true);
+
+    if (bfd_read (&ext_lst_symbol, amt, abfd) != amt) {
+      return false;
+    }
+
+    (*count)++;
+
+    unsigned int next_entry = bfd_getb32 (ext_lst_symbol.next_entry);
+    
+    if (next_entry != 0 && next_entry <= current_offset + sizeof (ext_lst_symbol)) {
+      bfd_set_error (bfd_error_bad_value);
+      return false;
+    }
+
+    current_offset = next_entry;
+  }
 
   return true;
 }
@@ -5650,9 +5522,105 @@ process_hash_chain(bfd *abfd, file_ptr lst_filepos, unsigned int hash_val, symin
    by ABFD and LST_HEADER.  */
 
 static bool
-som_bfd_fill_in_ar_symbols (bfd *abfd,
-			    struct som_lst_header *lst_header,
-			    carsym **syms)
+read_symbol_name(bfd *abfd, file_ptr lst_filepos, unsigned int string_loc, 
+                 unsigned int name_offset, char **name, size_t *len)
+{
+  unsigned char ext_len[4];
+  
+  if (bfd_seek(abfd, lst_filepos + string_loc + name_offset - 4, SEEK_SET) != 0)
+    return false;
+
+  if (bfd_read(&ext_len, 4, abfd) != 4)
+    return false;
+    
+  *len = bfd_getb32(ext_len);
+  
+  if (*len == (size_t) -1)
+  {
+    bfd_set_error(bfd_error_no_memory);
+    return false;
+  }
+  
+  *name = (char *) _bfd_alloc_and_read(abfd, *len + 1, *len);
+  if (!*name)
+    return false;
+    
+  (*name)[*len] = 0;
+  return true;
+}
+
+static bool
+process_symbol(bfd *abfd, file_ptr lst_filepos, unsigned int string_loc,
+               struct som_external_lst_symbol_record *lst_symbol,
+               struct som_external_som_entry *som_dict,
+               unsigned int module_count, carsym **set)
+{
+  char *name;
+  size_t len;
+  unsigned int ndx;
+  
+  if (!read_symbol_name(abfd, lst_filepos, string_loc, 
+                        bfd_getb32(lst_symbol->name), &name, &len))
+    return false;
+    
+  (*set)->name = name;
+  
+  ndx = bfd_getb32(lst_symbol->som_index);
+  if (ndx >= module_count)
+  {
+    bfd_set_error(bfd_error_bad_value);
+    return false;
+  }
+  
+  (*set)->file_offset = bfd_getb32(som_dict[ndx].location) - sizeof(struct ar_hdr);
+  (*set)++;
+  
+  return true;
+}
+
+static bool
+process_hash_chain(bfd *abfd, file_ptr lst_filepos, unsigned int string_loc,
+                   unsigned int hash_val, struct som_external_som_entry *som_dict,
+                   unsigned int module_count, carsym **set)
+{
+  struct som_external_lst_symbol_record lst_symbol;
+  size_t amt = sizeof(lst_symbol);
+  
+  if (bfd_seek(abfd, lst_filepos + hash_val, SEEK_SET) != 0)
+    return false;
+    
+  if (bfd_read(&lst_symbol, amt, abfd) != amt)
+    return false;
+    
+  if (!process_symbol(abfd, lst_filepos, string_loc, &lst_symbol, 
+                      som_dict, module_count, set))
+    return false;
+    
+  while (1)
+  {
+    unsigned int next_entry = bfd_getb32(lst_symbol.next_entry);
+    
+    if (next_entry == 0)
+      break;
+      
+    if (bfd_seek(abfd, lst_filepos + next_entry, SEEK_SET) != 0)
+      return false;
+      
+    if (bfd_read(&lst_symbol, amt, abfd) != amt)
+      return false;
+      
+    if (!process_symbol(abfd, lst_filepos, string_loc, &lst_symbol,
+                        som_dict, module_count, set))
+      return false;
+  }
+  
+  return true;
+}
+
+static bool
+som_bfd_fill_in_ar_symbols(bfd *abfd,
+                          struct som_lst_header *lst_header,
+                          carsym **syms)
 {
   unsigned int i;
   carsym *set = syms[0];
@@ -5663,133 +5631,53 @@ som_bfd_fill_in_ar_symbols (bfd *abfd,
   unsigned int string_loc;
   bool result = false;
 
-  lst_filepos = bfd_tell (abfd) - sizeof (struct som_external_lst_header);
+  lst_filepos = bfd_tell(abfd) - sizeof(struct som_external_lst_header);
 
-  if (_bfd_mul_overflow (lst_header->hash_size, 4, &amt))
-    {
-      bfd_set_error (bfd_error_file_too_big);
-      return false;
-    }
-  hash_table = _bfd_malloc_and_read (abfd, amt, amt);
+  if (_bfd_mul_overflow(lst_header->hash_size, 4, &amt))
+  {
+    bfd_set_error(bfd_error_file_too_big);
+    goto cleanup;
+  }
+  
+  hash_table = _bfd_malloc_and_read(abfd, amt, amt);
   if (hash_table == NULL && lst_header->hash_size != 0)
     goto cleanup;
 
-  if (bfd_seek (abfd, lst_filepos + lst_header->dir_loc, SEEK_SET) != 0)
+  if (bfd_seek(abfd, lst_filepos + lst_header->dir_loc, SEEK_SET) != 0)
     goto cleanup;
 
-  if (_bfd_mul_overflow (lst_header->module_count,
-			 sizeof (struct som_external_som_entry), &amt))
-    {
-      bfd_set_error (bfd_error_file_too_big);
-      goto cleanup;
-    }
+  if (_bfd_mul_overflow(lst_header->module_count,
+                        sizeof(struct som_external_som_entry), &amt))
+  {
+    bfd_set_error(bfd_error_file_too_big);
+    goto cleanup;
+  }
+  
   som_dict = (struct som_external_som_entry *)
-    _bfd_malloc_and_read (abfd, amt, amt);
+    _bfd_malloc_and_read(abfd, amt, amt);
   if (som_dict == NULL && lst_header->module_count != 0)
     goto cleanup;
 
   string_loc = lst_header->string_loc;
 
   for (i = 0; i < lst_header->hash_size; i++)
-    {
-      unsigned int hash_val = bfd_getb32 (hash_table + 4 * i);
-      if (hash_val == 0)
-	continue;
-
-      if (!process_hash_chain(abfd, lst_filepos, string_loc, hash_val,
-                              lst_header, som_dict, &set))
-        goto cleanup;
-    }
-
+  {
+    unsigned int hash_val = bfd_getb32(hash_table + 4 * i);
+    
+    if (hash_val == 0)
+      continue;
+      
+    if (!process_hash_chain(abfd, lst_filepos, string_loc, hash_val,
+                           som_dict, lst_header->module_count, &set))
+      goto cleanup;
+  }
+  
   result = true;
 
 cleanup:
-  free (hash_table);
-  free (som_dict);
+  free(hash_table);
+  free(som_dict);
   return result;
-}
-
-static bool
-process_hash_chain(bfd *abfd, file_ptr lst_filepos, unsigned int string_loc,
-                   unsigned int hash_val, struct som_lst_header *lst_header,
-                   struct som_external_som_entry *som_dict, carsym **set)
-{
-  struct som_external_lst_symbol_record lst_symbol;
-  size_t amt = sizeof (lst_symbol);
-
-  if (bfd_seek (abfd, lst_filepos + hash_val, SEEK_SET) != 0)
-    return false;
-
-  if (bfd_read (&lst_symbol, amt, abfd) != amt)
-    return false;
-
-  do
-    {
-      if (!process_symbol(abfd, lst_filepos, string_loc, &lst_symbol,
-                         lst_header, som_dict, *set))
-        return false;
-      
-      (*set)++;
-      
-      unsigned int next_entry = bfd_getb32 (lst_symbol.next_entry);
-      if (next_entry == 0)
-        break;
-
-      if (bfd_seek (abfd, lst_filepos + next_entry, SEEK_SET) != 0)
-        return false;
-
-      if (bfd_read (&lst_symbol, amt, abfd) != amt)
-        return false;
-    }
-  while (1);
-
-  return true;
-}
-
-static bool
-process_symbol(bfd *abfd, file_ptr lst_filepos, unsigned int string_loc,
-               struct som_external_lst_symbol_record *lst_symbol,
-               struct som_lst_header *lst_header,
-               struct som_external_som_entry *som_dict,
-               carsym *symbol)
-{
-  unsigned char ext_len[4];
-  size_t len;
-  char *name;
-  unsigned int ndx;
-
-  if (bfd_seek (abfd, (lst_filepos + string_loc
-                       + bfd_getb32 (lst_symbol->name) - 4), SEEK_SET) != 0)
-    return false;
-
-  if (bfd_read (&ext_len, 4, abfd) != 4)
-    return false;
-  
-  len = bfd_getb32 (ext_len);
-
-  if (len == (size_t) -1)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
-  
-  name = (char *) _bfd_alloc_and_read (abfd, len + 1, len);
-  if (!name)
-    return false;
-  
-  name[len] = 0;
-  symbol->name = name;
-
-  ndx = bfd_getb32 (lst_symbol->som_index);
-  if (ndx >= lst_header->module_count)
-    {
-      bfd_set_error (bfd_error_bad_value);
-      return false;
-    }
-  
-  symbol->file_offset = bfd_getb32 (som_dict[ndx].location) - sizeof (struct ar_hdr);
-  
-  return true;
 }
 
 /* Read in the LST from the archive.  */
@@ -5808,14 +5696,13 @@ som_slurp_armap (bfd *abfd)
 
   if (bytes_read == 0)
     return true;
-  
   if (bytes_read != 16)
     return false;
 
   if (bfd_seek (abfd, -16, SEEK_CUR) != 0)
     return false;
 
-  if (!startswith (nextname, "/               "))
+  if (! startswith (nextname, "/               "))
     {
       abfd->has_armap = false;
       return true;
@@ -5853,27 +5740,25 @@ som_slurp_armap (bfd *abfd)
       return false;
     }
 
-  if (!som_bfd_count_ar_symbols (abfd, &lst_header, &ardata->symdef_count))
+  if (! som_bfd_count_ar_symbols (abfd, &lst_header, &ardata->symdef_count))
     return false;
 
   if (bfd_seek (abfd, (ardata->first_file_filepos - parsed_size
-		       + sizeof (struct som_external_lst_header)),
-		SEEK_SET) != 0)
+                       + sizeof (struct som_external_lst_header)),
+                SEEK_SET) != 0)
     return false;
 
   ardata->cache = 0;
-  
   if (_bfd_mul_overflow (ardata->symdef_count, sizeof (carsym), &amt))
     {
       bfd_set_error (bfd_error_file_too_big);
       return false;
     }
-  
   ardata->symdefs = bfd_alloc (abfd, amt);
   if (!ardata->symdefs)
     return false;
 
-  if (!som_bfd_fill_in_ar_symbols (abfd, &lst_header, &ardata->symdefs))
+  if (! som_bfd_fill_in_ar_symbols (abfd, &lst_header, &ardata->symdefs))
     return false;
 
   if (bfd_seek (abfd, ardata->first_file_filepos, SEEK_SET) != 0)
@@ -5893,178 +5778,25 @@ som_bfd_prep_for_ar_write (bfd *abfd,
 			   unsigned int *num_syms,
 			   unsigned int *stringsize)
 {
-  bfd *curr_bfd = abfd->archive_head;
+  bfd *curr_bfd;
+
+  if (!num_syms || !stringsize)
+    return false;
 
   *num_syms = 0;
   *stringsize = 0;
 
-  while (curr_bfd != NULL)
-    {
-      if (curr_bfd->format == bfd_object
-	  && curr_bfd->xvec->flavour == bfd_target_som_flavour)
-	{
-	  if (!som_slurp_symbol_table (curr_bfd))
-	    return false;
-
-	  som_symbol_type *sym = obj_som_symtab (curr_bfd);
-	  unsigned int curr_count = bfd_get_symcount (curr_bfd);
-
-	  for (unsigned int i = 0; i < curr_count; i++, sym++)
-	    {
-	      struct som_misc_symbol_info info;
-	      som_bfd_derive_misc_symbol_info (curr_bfd, &sym->symbol, &info);
-
-	      if (info.symbol_type != ST_NULL
-		  && info.symbol_type != ST_SYM_EXT
-		  && info.symbol_type != ST_ARG_EXT
-		  && (info.symbol_scope == SS_UNIVERSAL
-		      || info.symbol_type == ST_STORAGE)
-		  && !bfd_is_und_section (sym->symbol.section))
-		{
-		  (*num_syms)++;
-		  *stringsize += strlen (sym->symbol.name) + 5;
-		  *stringsize = (*stringsize + 3) & ~3;
-		}
-	    }
-	}
-      curr_bfd = curr_bfd->archive_next;
-    }
-  return true;
-}
-
-/* Hash a symbol name based on the hashing algorithm presented in the
-   SOM ABI.  */
-
-static unsigned int
-som_bfd_ar_symbol_hash (asymbol *symbol)
-{
-  if (symbol == NULL || symbol->name == NULL)
-    return 0;
-
-  unsigned int len = strlen (symbol->name);
-
-  if (len == 0)
-    return 0;
-
-  if (len == 1)
-    return 0x1000100 | (symbol->name[0] << 16) | symbol->name[0];
-
-  unsigned int hash = (len & 0x7f) << 24;
-  hash |= symbol->name[1] << 16;
-  hash |= symbol->name[len - 2] << 8;
-  hash |= symbol->name[len - 1];
-  
-  return hash;
-}
-
-/* Do the bulk of the work required to write the SOM library
-   symbol table.  */
-
-static bool
-som_bfd_ar_write_symbol_stuff (bfd *abfd,
-			       unsigned int nsyms,
-			       unsigned int string_size,
-			       struct som_external_lst_header lst,
-			       unsigned elength)
-{
-  char *strings = NULL, *p;
-  struct som_external_lst_symbol_record *lst_syms = NULL, *curr_lst_sym;
-  bfd *curr_bfd;
-  unsigned char *hash_table = NULL;
-  struct som_external_som_entry *som_dict = NULL;
-  struct som_external_lst_symbol_record **last_hash_entry = NULL;
-  unsigned int curr_som_offset, som_index = 0;
-  size_t amt;
-  unsigned int module_count;
-  unsigned int hash_size;
-  bool result = false;
-
-  hash_size = bfd_getb32 (lst.hash_size);
-  if (_bfd_mul_overflow (hash_size, 4, &amt))
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
-  if (hash_size != 0)
-    {
-      hash_table = bfd_zmalloc (amt);
-      if (hash_table == NULL)
-        goto cleanup;
-    }
-
-  module_count = bfd_getb32 (lst.module_count);
-  if (_bfd_mul_overflow (module_count,
-			 sizeof (struct som_external_som_entry), &amt))
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto cleanup;
-    }
-  if (module_count != 0)
-    {
-      som_dict = bfd_zmalloc (amt);
-      if (som_dict == NULL)
-        goto cleanup;
-    }
-
-  if (_bfd_mul_overflow (hash_size,
-			 sizeof (struct som_external_lst_symbol_record *),
-			 &amt))
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto cleanup;
-    }
-  if (hash_size != 0)
-    {
-      last_hash_entry = bfd_zmalloc (amt);
-      if (last_hash_entry == NULL)
-        goto cleanup;
-    }
-
-  som_index = 0;
-  curr_som_offset = 8 + 2 * sizeof (struct ar_hdr) + bfd_getb32 (lst.file_end);
-
-  if (elength)
-    curr_som_offset += elength;
-
-  curr_som_offset = (curr_som_offset + 0x1) & ~0x1;
-
-  if (_bfd_mul_overflow (nsyms,
-			 sizeof (struct som_external_lst_symbol_record), &amt))
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto cleanup;
-    }
-  if (nsyms != 0)
-    {
-      lst_syms = bfd_malloc (amt);
-      if (lst_syms == NULL)
-        goto cleanup;
-    }
-  if (string_size != 0)
-    {
-      strings = bfd_malloc (string_size);
-      if (strings == NULL)
-        goto cleanup;
-    }
-
-  p = strings;
-  curr_lst_sym = lst_syms;
-
-  curr_bfd = abfd->archive_head;
-  while (curr_bfd != NULL)
+  for (curr_bfd = abfd->archive_head; curr_bfd != NULL; curr_bfd = curr_bfd->archive_next)
     {
       unsigned int curr_count, i;
       som_symbol_type *sym;
 
       if (curr_bfd->format != bfd_object
 	  || curr_bfd->xvec->flavour != bfd_target_som_flavour)
-	{
-	  curr_bfd = curr_bfd->archive_next;
-	  continue;
-	}
+	continue;
 
-      if (! som_slurp_symbol_table (curr_bfd))
-	goto cleanup;
+      if (!som_slurp_symbol_table (curr_bfd))
+	return false;
 
       sym = obj_som_symtab (curr_bfd);
       curr_count = bfd_get_symcount (curr_bfd);
@@ -6072,11 +5804,6 @@ som_bfd_ar_write_symbol_stuff (bfd *abfd,
       for (i = 0; i < curr_count; i++, sym++)
 	{
 	  struct som_misc_symbol_info info;
-	  struct som_external_lst_symbol_record *last;
-	  unsigned int symbol_pos;
-	  unsigned int slen;
-	  unsigned int symbol_key;
-	  unsigned int flags;
 
 	  som_bfd_derive_misc_symbol_info (curr_bfd, &sym->symbol, &info);
 
@@ -6092,103 +5819,323 @@ som_bfd_ar_write_symbol_stuff (bfd *abfd,
 	  if (bfd_is_und_section (sym->symbol.section))
 	    continue;
 
-	  if (bfd_getb32 (som_dict[som_index].location) == 0)
-	    {
-	      bfd_putb32 (curr_som_offset, som_dict[som_index].location);
-	      bfd_putb32 (arelt_size (curr_bfd), som_dict[som_index].length);
-	    }
-
-	  symbol_key = som_bfd_ar_symbol_hash (&sym->symbol);
-
-	  flags = 0;
-	  if (info.secondary_def)
-	    flags |= LST_SYMBOL_SECONDARY_DEF;
-	  flags |= info.symbol_type << LST_SYMBOL_SYMBOL_TYPE_SH;
-	  flags |= info.symbol_scope << LST_SYMBOL_SYMBOL_SCOPE_SH;
-	  if (bfd_is_com_section (sym->symbol.section))
-	    flags |= LST_SYMBOL_IS_COMMON;
-	  if (info.dup_common)
-	    flags |= LST_SYMBOL_DUP_COMMON;
-	  flags |= 3 << LST_SYMBOL_XLEAST_SH;
-	  flags |= info.arg_reloc << LST_SYMBOL_ARG_RELOC_SH;
-	  bfd_putb32 (flags, curr_lst_sym->flags);
-	  bfd_putb32 (p - strings + 4, curr_lst_sym->name);
-	  bfd_putb32 (0, curr_lst_sym->qualifier_name);
-	  bfd_putb32 (info.symbol_info, curr_lst_sym->symbol_info);
-	  bfd_putb32 (info.symbol_value | info.priv_level,
-		      curr_lst_sym->symbol_value);
-	  bfd_putb32 (0, curr_lst_sym->symbol_descriptor);
-	  curr_lst_sym->reserved = 0;
-	  bfd_putb32 (som_index, curr_lst_sym->som_index);
-	  bfd_putb32 (symbol_key, curr_lst_sym->symbol_key);
-	  bfd_putb32 (0, curr_lst_sym->next_entry);
-
-	  symbol_pos =
-	    (curr_lst_sym - lst_syms)
-	    * sizeof (struct som_external_lst_symbol_record)
-	    + hash_size * 4
-	    + module_count * sizeof (struct som_external_som_entry)
-	    + sizeof (struct som_external_lst_header);
-	  last = last_hash_entry[symbol_key % hash_size];
-	  if (last != NULL)
-	    {
-	      bfd_putb32 (symbol_pos, last->next_entry);
-	    }
-	  else
-	    bfd_putb32 (symbol_pos, hash_table + 4 * (symbol_key % hash_size));
-
-	  last_hash_entry[symbol_key % hash_size] = curr_lst_sym;
-
-	  slen = strlen (sym->symbol.name);
-	  bfd_put_32 (abfd, slen, p);
-	  p += 4;
-	  slen++;
-	  memcpy (p, sym->symbol.name, slen);
-	  p += slen;
-	  while (slen % 4)
-	    {
-	      bfd_put_8 (abfd, 0, p);
-	      p++;
-	      slen++;
-	    }
-	  BFD_ASSERT (p <= strings + string_size);
-
-	  curr_lst_sym++;
+	  (*num_syms)++;
+	  *stringsize += strlen (sym->symbol.name) + 5;
+	  *stringsize = (*stringsize + 3) & ~3;
 	}
+    }
+  return true;
+}
 
-      curr_som_offset += arelt_size (curr_bfd) + sizeof (struct ar_hdr);
+/* Hash a symbol name based on the hashing algorithm presented in the
+   SOM ABI.  */
 
-      curr_som_offset = (curr_som_offset + 0x1) &~ (unsigned) 1;
-      curr_bfd = curr_bfd->archive_next;
-      som_index++;
+static unsigned int
+som_bfd_ar_symbol_hash (asymbol *symbol)
+{
+  if (!symbol || !symbol->name)
+    return 0;
+
+  unsigned int len = strlen (symbol->name);
+
+  if (len == 0)
+    return 0;
+
+  if (len == 1)
+    return 0x1000100 | (symbol->name[0] << 16) | symbol->name[0];
+
+  return ((len & 0x7f) << 24) | (symbol->name[1] << 16)
+	  | (symbol->name[len - 2] << 8) | symbol->name[len - 1];
+}
+
+/* Do the bulk of the work required to write the SOM library
+   symbol table.  */
+
+static bool
+som_bfd_ar_write_symbol_stuff (bfd *abfd,
+			       unsigned int nsyms,
+			       unsigned int string_size,
+			       struct som_external_lst_header lst,
+			       unsigned elength)
+{
+  char *strings = NULL;
+  struct som_external_lst_symbol_record *lst_syms = NULL;
+  unsigned char *hash_table = NULL;
+  struct som_external_som_entry *som_dict = NULL;
+  struct som_external_lst_symbol_record **last_hash_entry = NULL;
+  unsigned int hash_size = bfd_getb32 (lst.hash_size);
+  unsigned int module_count = bfd_getb32 (lst.module_count);
+  size_t amt;
+
+  if (!allocate_hash_table(&hash_table, hash_size, &amt) ||
+      !allocate_som_dict(&som_dict, module_count, &amt) ||
+      !allocate_hash_entry_array(&last_hash_entry, hash_size, &amt) ||
+      !allocate_symbol_arrays(&lst_syms, nsyms, &strings, string_size, &amt))
+    {
+      cleanup_memory(hash_table, som_dict, last_hash_entry, lst_syms, strings);
+      return false;
     }
 
-  amt = (size_t) hash_size * 4;
+  if (!process_symbols(abfd, lst_syms, strings, hash_table, som_dict,
+                       last_hash_entry, hash_size, module_count, elength))
+    {
+      cleanup_memory(hash_table, som_dict, last_hash_entry, lst_syms, strings);
+      return false;
+    }
+
+  if (!write_output_data(abfd, hash_table, hash_size, som_dict, module_count,
+                         lst_syms, nsyms, strings, string_size))
+    {
+      cleanup_memory(hash_table, som_dict, last_hash_entry, lst_syms, strings);
+      return false;
+    }
+
+  cleanup_memory(hash_table, som_dict, last_hash_entry, lst_syms, strings);
+  return true;
+}
+
+static bool
+allocate_hash_table(unsigned char **hash_table, unsigned int hash_size, size_t *amt)
+{
+  if (_bfd_mul_overflow (hash_size, 4, amt))
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
+  *hash_table = bfd_zmalloc (*amt);
+  return *hash_table != NULL || hash_size == 0;
+}
+
+static bool
+allocate_som_dict(struct som_external_som_entry **som_dict, 
+                  unsigned int module_count, size_t *amt)
+{
+  if (_bfd_mul_overflow (module_count,
+                         sizeof (struct som_external_som_entry), amt))
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
+  *som_dict = bfd_zmalloc (*amt);
+  return *som_dict != NULL || module_count == 0;
+}
+
+static bool
+allocate_hash_entry_array(struct som_external_lst_symbol_record ***last_hash_entry,
+                          unsigned int hash_size, size_t *amt)
+{
+  if (_bfd_mul_overflow (hash_size,
+                         sizeof (struct som_external_lst_symbol_record *), amt))
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
+  *last_hash_entry = bfd_zmalloc (*amt);
+  return *last_hash_entry != NULL || hash_size == 0;
+}
+
+static bool
+allocate_symbol_arrays(struct som_external_lst_symbol_record **lst_syms,
+                       unsigned int nsyms, char **strings, 
+                       unsigned int string_size, size_t *amt)
+{
+  if (_bfd_mul_overflow (nsyms,
+                         sizeof (struct som_external_lst_symbol_record), amt))
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
+  *lst_syms = bfd_malloc (*amt);
+  if (*lst_syms == NULL && nsyms != 0)
+    return false;
+    
+  *strings = bfd_malloc (string_size);
+  return *strings != NULL || string_size == 0;
+}
+
+static bool
+should_include_symbol(const struct som_misc_symbol_info *info,
+                      const asymbol *symbol)
+{
+  if (info->symbol_type == ST_NULL ||
+      info->symbol_type == ST_SYM_EXT ||
+      info->symbol_type == ST_ARG_EXT)
+    return false;
+
+  if (info->symbol_scope != SS_UNIVERSAL &&
+      info->symbol_type != ST_STORAGE)
+    return false;
+
+  return !bfd_is_und_section (symbol->section);
+}
+
+static void
+fill_symbol_record(struct som_external_lst_symbol_record *curr_lst_sym,
+                   const struct som_misc_symbol_info *info,
+                   const asymbol *symbol, char *p, char *strings,
+                   unsigned int som_index, unsigned int symbol_key)
+{
+  unsigned int flags = 0;
+  
+  if (info->secondary_def)
+    flags |= LST_SYMBOL_SECONDARY_DEF;
+  flags |= info->symbol_type << LST_SYMBOL_SYMBOL_TYPE_SH;
+  flags |= info->symbol_scope << LST_SYMBOL_SYMBOL_SCOPE_SH;
+  if (bfd_is_com_section (symbol->section))
+    flags |= LST_SYMBOL_IS_COMMON;
+  if (info->dup_common)
+    flags |= LST_SYMBOL_DUP_COMMON;
+  flags |= 3 << LST_SYMBOL_XLEAST_SH;
+  flags |= info->arg_reloc << LST_SYMBOL_ARG_RELOC_SH;
+
+  bfd_putb32 (flags, curr_lst_sym->flags);
+  bfd_putb32 (p - strings + 4, curr_lst_sym->name);
+  bfd_putb32 (0, curr_lst_sym->qualifier_name);
+  bfd_putb32 (info->symbol_info, curr_lst_sym->symbol_info);
+  bfd_putb32 (info->symbol_value | info->priv_level, curr_lst_sym->symbol_value);
+  bfd_putb32 (0, curr_lst_sym->symbol_descriptor);
+  curr_lst_sym->reserved = 0;
+  bfd_putb32 (som_index, curr_lst_sym->som_index);
+  bfd_putb32 (symbol_key, curr_lst_sym->symbol_key);
+  bfd_putb32 (0, curr_lst_sym->next_entry);
+}
+
+static void
+update_hash_table(struct som_external_lst_symbol_record *curr_lst_sym,
+                  struct som_external_lst_symbol_record **last_hash_entry,
+                  unsigned char *hash_table, unsigned int symbol_key,
+                  unsigned int hash_size, unsigned int module_count,
+                  struct som_external_lst_symbol_record *lst_syms)
+{
+  unsigned int symbol_pos = 
+    (curr_lst_sym - lst_syms) * sizeof (struct som_external_lst_symbol_record) +
+    hash_size * 4 + module_count * sizeof (struct som_external_som_entry) +
+    sizeof (struct som_external_lst_header);
+  
+  unsigned int hash_index = symbol_key % hash_size;
+  struct som_external_lst_symbol_record *last = last_hash_entry[hash_index];
+
+  if (last != NULL)
+    bfd_putb32 (symbol_pos, last->next_entry);
+  else
+    bfd_putb32 (symbol_pos, hash_table + 4 * hash_index);
+
+  last_hash_entry[hash_index] = curr_lst_sym;
+}
+
+static char *
+update_string_table(bfd *abfd, char *p, const char *symbol_name)
+{
+  unsigned int slen = strlen (symbol_name);
+  bfd_put_32 (abfd, slen, p);
+  p += 4;
+  slen++;
+  memcpy (p, symbol_name, slen);
+  p += slen;
+  while (slen % 4)
+    {
+      bfd_put_8 (abfd, 0, p);
+      p++;
+      slen++;
+    }
+  return p;
+}
+
+static bool
+process_symbols(bfd *abfd, struct som_external_lst_symbol_record *lst_syms,
+                char *strings, unsigned char *hash_table,
+                struct som_external_som_entry *som_dict,
+                struct som_external_lst_symbol_record **last_hash_entry,
+                unsigned int hash_size, unsigned int module_count,
+                unsigned elength)
+{
+  char *p = strings;
+  struct som_external_lst_symbol_record *curr_lst_sym = lst_syms;
+  unsigned int som_index = 0;
+  unsigned int curr_som_offset = 8 + 2 * sizeof (struct ar_hdr) + 
+                                  bfd_getb32 (abfd->archive_head->arelt_data->parsed_size);
+
+  if (elength)
+    curr_som_offset += elength;
+  curr_som_offset = (curr_som_offset + 0x1) & ~0x1;
+
+  for (bfd *curr_bfd = abfd->archive_head; curr_bfd != NULL; 
+       curr_bfd = curr_bfd->archive_next, som_index++)
+    {
+      if (curr_bfd->format != bfd_object ||
+          curr_bfd->xvec->flavour != bfd_target_som_flavour)
+        continue;
+
+      if (!som_slurp_symbol_table (curr_bfd))
+        return false;
+
+      som_symbol_type *sym = obj_som_symtab (curr_bfd);
+      unsigned int curr_count = bfd_get_symcount (curr_bfd);
+
+      for (unsigned int i = 0; i < curr_count; i++, sym++)
+        {
+          struct som_misc_symbol_info info;
+          som_bfd_derive_misc_symbol_info (curr_bfd, &sym->symbol, &info);
+
+          if (!should_include_symbol(&info, &sym->symbol))
+            continue;
+
+          if (bfd_getb32 (som_dict[som_index].location) == 0)
+            {
+              bfd_putb32 (curr_som_offset, som_dict[som_index].location);
+              bfd_putb32 (arelt_size (curr_bfd), som_dict[som_index].length);
+            }
+
+          unsigned int symbol_key = som_bfd_ar_symbol_hash (&sym->symbol);
+          fill_symbol_record(curr_lst_sym, &info, &sym->symbol, p, strings,
+                             som_index, symbol_key);
+          update_hash_table(curr_lst_sym, last_hash_entry, hash_table,
+                            symbol_key, hash_size, module_count, lst_syms);
+          p = update_string_table(abfd, p, sym->symbol.name);
+          curr_lst_sym++;
+        }
+
+      curr_som_offset += arelt_size (curr_bfd) + sizeof (struct ar_hdr);
+      curr_som_offset = (curr_som_offset + 0x1) & ~1U;
+    }
+
+  return true;
+}
+
+static bool
+write_output_data(bfd *abfd, unsigned char *hash_table, unsigned int hash_size,
+                  struct som_external_som_entry *som_dict, unsigned int module_count,
+                  struct som_external_lst_symbol_record *lst_syms, unsigned int nsyms,
+                  char *strings, unsigned int string_size)
+{
+  size_t amt = (size_t) hash_size * 4;
   if (bfd_write (hash_table, amt, abfd) != amt)
-    goto cleanup;
+    return false;
 
   amt = (size_t) module_count * sizeof (struct som_external_som_entry);
   if (bfd_write (som_dict, amt, abfd) != amt)
-    goto cleanup;
+    return false;
 
   amt = (size_t) nsyms * sizeof (struct som_external_lst_symbol_record);
   if (bfd_write (lst_syms, amt, abfd) != amt)
-    goto cleanup;
+    return false;
 
   amt = string_size;
-  if (bfd_write (strings, amt, abfd) != amt)
-    goto cleanup;
+  return bfd_write (strings, amt, abfd) == amt;
+}
 
-  result = true;
-
-cleanup:
+static void
+cleanup_memory(unsigned char *hash_table, 
+               struct som_external_som_entry *som_dict,
+               struct som_external_lst_symbol_record **last_hash_entry,
+               struct som_external_lst_symbol_record *lst_syms,
+               char *strings)
+{
   free (hash_table);
   free (som_dict);
   free (last_hash_entry);
   free (lst_syms);
   free (strings);
-
-  return result;
 }
 
 /* Write out the LST for the archive.
@@ -6202,10 +6149,14 @@ som_write_armap (bfd *abfd,
 		 unsigned int orl_count ATTRIBUTE_UNUSED,
 		 int stridx ATTRIBUTE_UNUSED)
 {
+  bfd *curr_bfd;
   struct stat statbuf;
-  unsigned int lst_size, nsyms, stringsize;
+  unsigned int i, lst_size, nsyms, stringsize;
   struct ar_hdr hdr;
   struct som_external_lst_header lst;
+  unsigned char *p;
+  size_t amt;
+  unsigned int csum;
   unsigned int module_count;
 
   if (stat (bfd_get_filename (abfd), &statbuf) != 0)
@@ -6213,7 +6164,6 @@ som_write_armap (bfd *abfd,
       bfd_set_error (bfd_error_system_call);
       return false;
     }
-  
   bfd_ardata (abfd)->armap_timestamp = statbuf.st_mtime + 60;
 
   lst_size = sizeof (struct som_external_lst_header);
@@ -6223,19 +6173,21 @@ som_write_armap (bfd *abfd,
   bfd_putb32 (VERSION_ID, &lst.version_id);
   bfd_putb32 (0, &lst.file_time.secs);
   bfd_putb32 (0, &lst.file_time.nanosecs);
+
   bfd_putb32 (lst_size, &lst.hash_loc);
   bfd_putb32 (SOM_LST_HASH_SIZE, &lst.hash_size);
 
   lst_size += 4 * SOM_LST_HASH_SIZE;
 
+  curr_bfd = abfd->archive_head;
   module_count = 0;
-  for (bfd *curr_bfd = abfd->archive_head; curr_bfd != NULL; curr_bfd = curr_bfd->archive_next)
+  while (curr_bfd != NULL)
     {
       if (curr_bfd->format == bfd_object
 	  && curr_bfd->xvec->flavour == bfd_target_som_flavour)
 	module_count++;
+      curr_bfd = curr_bfd->archive_next;
     }
-  
   bfd_putb32 (module_count, &lst.module_count);
   bfd_putb32 (module_count, &lst.module_limit);
   bfd_putb32 (lst_size, &lst.dir_loc);
@@ -6259,13 +6211,14 @@ som_write_armap (bfd *abfd,
   bfd_putb32 (0, &lst.free_list);
   bfd_putb32 (lst_size, &lst.file_end);
 
-  unsigned char *p = (unsigned char *) &lst;
-  unsigned int csum = 0;
-  for (unsigned int i = 0; i < sizeof (struct som_external_lst_header) - sizeof (int); i += 4)
+  p = (unsigned char *) &lst;
+  csum = 0;
+  for (i = 0; i < sizeof (struct som_external_lst_header) - sizeof (int);
+       i += 4)
     csum ^= bfd_getb32 (&p[i]);
   bfd_putb32 (csum, &lst.checksum);
 
-  sprintf (hdr.ar_name, "/              ");
+  sprintf (hdr.ar_name, "/               ");
   _bfd_ar_spacepad (hdr.ar_date, sizeof (hdr.ar_date), "%-12ld",
 		    bfd_ardata (abfd)->armap_timestamp);
   _bfd_ar_spacepad (hdr.ar_uid, sizeof (hdr.ar_uid), "%ld",
@@ -6279,15 +6232,16 @@ som_write_armap (bfd *abfd,
   hdr.ar_fmag[0] = '`';
   hdr.ar_fmag[1] = '\012';
 
-  char *hdr_bytes = (char *) &hdr;
-  for (unsigned int i = 0; i < sizeof (struct ar_hdr); i++)
-    if (hdr_bytes[i] == '\0')
-      hdr_bytes[i] = ' ';
+  for (i = 0; i < sizeof (struct ar_hdr); i++)
+    if (((char *) (&hdr))[i] == '\0')
+      (((char *) (&hdr))[i]) = ' ';
 
-  if (bfd_write (&hdr, sizeof (struct ar_hdr), abfd) != sizeof (struct ar_hdr))
+  amt = sizeof (struct ar_hdr);
+  if (bfd_write (&hdr, amt, abfd) != amt)
     return false;
 
-  if (bfd_write (&lst, sizeof (struct som_external_lst_header), abfd) != sizeof (struct som_external_lst_header))
+  amt = sizeof (struct som_external_lst_header);
+  if (bfd_write (&lst, amt, abfd) != amt)
     return false;
 
   if (!som_bfd_ar_write_symbol_stuff (abfd, nsyms, stringsize, lst, elength))
@@ -6301,40 +6255,24 @@ som_write_armap (bfd *abfd,
 static bool
 som_bfd_free_cached_info (bfd *abfd)
 {
-  enum bfd_format format = bfd_get_format (abfd);
-  
+  if (abfd == NULL)
+    return false;
+
+  bfd_format format = bfd_get_format (abfd);
   if (format != bfd_object && format != bfd_core)
-    {
-      return true;
-    }
+    return true;
 
-  void **symtab_ptr = &obj_som_symtab (abfd);
-  if (*symtab_ptr != NULL)
+  free (obj_som_symtab (abfd));
+  obj_som_symtab (abfd) = NULL;
+  
+  free (obj_som_stringtab (abfd));
+  obj_som_stringtab (abfd) = NULL;
+  
+  for (asection *o = abfd->sections; o != NULL; o = o->next)
     {
-      free (*symtab_ptr);
-      *symtab_ptr = NULL;
-    }
-
-  void **stringtab_ptr = &obj_som_stringtab (abfd);
-  if (*stringtab_ptr != NULL)
-    {
-      free (*stringtab_ptr);
-      *stringtab_ptr = NULL;
-    }
-
-  asection *section = abfd->sections;
-  while (section != NULL)
-    {
-      section->reloc_count = (unsigned) -1;
-      
-      struct som_section_data_struct *som_data = som_section_data (section);
-      if (som_data != NULL && som_data->reloc_stream != NULL)
-        {
-          free (som_data->reloc_stream);
-          som_data->reloc_stream = NULL;
-        }
-      
-      section = section->next;
+      o->reloc_count = (unsigned) -1;
+      free (som_section_data (o)->reloc_stream);
+      som_section_data (o)->reloc_stream = NULL;
     }
 
   return true;
